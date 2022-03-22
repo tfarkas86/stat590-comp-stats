@@ -1,0 +1,357 @@
+---
+title: 'Lab 2: Text Manipulation, Data Frames, and Apply'
+author: "Statistical Computing"
+output: pdf_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, autodep=TRUE, cache.comments=TRUE)
+```
+
+Name:  
+Collaborated with:  
+
+The total credit of this lab is 10 points. You can collaborate with your classmates, but you must identify their names above, and you must submit **your own** lab as an knitted pdf or html file. To answer the questions, display the results and write your comments if asked.
+
+```{r}
+## For reproducibility --- don't change this!
+set.seed(01182018)
+```
+
+```{r overhead}
+setwd("~/Dropbox/3_Education/Courses/stat_590_compstat/code/")
+```
+
+
+
+Shakespeare's complete works
+===
+
+[Project Gutenberg](http://www.gutenberg.org) offers over 50,000 free online books, especially old books (classic literature), for which copyright has expired. We're going to look at the complete works of [William Shakespeare](https://en.wikipedia.org/wiki/William_Shakespeare), taken from the Project Gutenberg website. 
+
+To avoid hitting the Project Gutenberg server over and over again, please download the file from UNM Learn.
+
+
+Reading in text, basic exploratory tasks
+===
+
+- **1a.** (0.3 point) Read in the Shakespeare data linked above into your R session with `readLines()`. Call the result `shakespeare.lines`. This should be a vector of strings, each element representing a "line" of text. Print the first 5 lines. How many lines are there? How many characters in the longest line? What is the average number of characters per line? How many lines are there with zero characters (empty lines)? Hint: each of these queries should only require one line of code; for the last one, use an on-the-fly Boolean comparison and `sum()`.
+
+```{r}
+shakespeare.lines <- readLines(con = file("./shakespeare.txt"))
+print(shakespeare.lines[1:5])
+length(shakespeare.lines) # 164201 lines
+mean(nchar(shakespeare.lines)) # 33.02 characters per line
+sum(nchar(shakespeare.lines) == 0) # 26163 empty lines
+```
+
+- **1b.** (0.3 point) Remove all empty lines from `shakespeare.lines` (i.e., lines with zero characters). Check that that the new length of `shakespeare.lines` makes sense to you.
+
+```{r}
+shakespeare.lines <- shakespeare.lines[nchar(shakespeare.lines) > 0]
+length(shakespeare.lines)
+164201 - 138038 # check!
+```
+
+- **1c.** (0.3 point) Collapse the lines in `shakespeare.lines` into one big string, separating each line by a space in doing so, using `paste()`. Call the resulting string `shakespeare.all`. How many characters does this string have? How does this compare to the sum of characters in `shakespeare.lines`, and does this make sense to you?
+
+```{r, results = FALSE}
+shakespeare.all <- paste(shakespeare.lines, collapse = " ")
+#shakespeare.all
+nchar(shakespeare.all) # 5,560,191 characters
+sum(nchar(shakespeare.lines)) # 5,422,154
+nchar(" ") # 1 character!
+```
+
+- **1d.** (0.3 point) Split up `shakespeare.all` into words, using `strsplit()` with `split=" "`. Call the resulting string vector (note: here we are asking you for a vector, not a list) `shakespeare.words`. How long is this vector, i.e., how many words are there? Using the `unique()` function, compute and store the unique words as `shakespeare.words.unique`. How many unique words are there?  
+
+```{r}
+shakespeare.words <- unlist(strsplit(shakespeare.all, split = " "))
+length(shakespeare.words) # 1,242,817
+shakespeare.words.unique <- unique(shakespeare.words)
+length(shakespeare.words.unique) # 76560
+```
+
+
+- **1e.** (0.3 point) Plot a histogram of the number of characters of the words in `shakespeare.words.unique`. You will have to set a large value of the `breaks` argument (say, `breaks=50`) in order to see in more detail what is going on. What does the bulk of this distribution look like to you? Why is the x-axis on the histogram extended so far to the right (what does this tell you about the right tail of the distribution)?
+
+```{r}
+hist(nchar(shakespeare.words.unique), breaks=50, 
+     xlab = "nchar", main = "")
+```
+
+This is a rather nice bell-shaped distribution, except with a very long right tail. It shows the vast majority of unique words have between 1 and 20 characters, but some rare works have upwards of 60 characters!
+
+- **1f.** (0.3 point) Using `table()`, compute counts for the words in `shakespeare.words`, and save the result as `shakespeare.wordtab`. How long is `shakespeare.wordtab`, and is this equal to the number of unique words (as computed above)? Using named indexing, answer: how many times does the word "thou" appear? The word "rumour"? The word "gloomy"? The word "assassination"?
+
+```{r}
+shakespeare.wordtab <- table(shakespeare.words)
+length(shakespeare.wordtab) # 76560 is the number of unique words
+shakespeare.wordtab[c("thou", "rumour", "gloomy", "assassination")]
+```
+
+States data set
+===
+
+Below we construct a data frame, of 50 states x 10 variables. The first 8 variables are numeric and the last 2 are factors. The numeric variables here come from the built-in `state.x77` matrix, which records various demographic factors on 50 US states, measured in the 1970s. You can learn more about this state data set by typing `?state.x77` into your R console. 
+
+```{r}
+state.df = data.frame(state.x77, Region=state.region, Division=state.division)
+```
+
+
+- **2a.** (0.3 point) Add a column to `state.df`, containing the state abbreviations that are stored in the built-in vector `state.abb`. Name this column `Abbr`. You can do this in (at least) two ways: by using a call to `data.frame()`, or by directly defining `state.df$Abbr`. Display the first 3 rows and all 11 columns of the new `state.df`.
+
+```{r}
+state.df$Abbr <- state.abb
+head(state.df, 3)
+```
+
+- **2b.** (0.3 point) Remove the `Region` column from `state.df`. You can do this in (at least) two ways: by using negative indexing, or by directly setting `state.df$Region` to be `NULL`. Display the first 3 rows and all 10 columns of `state.df`.
+
+```{r}
+state.df$Region <- NULL
+head(state.df, 3)
+```
+
+
+- **2c.** (0.3 point) Add two columns to `state.df`, containing the x and y coordinates (longitude and latitude, respectively) of the center of the states, that are stored in the (existing) list `state.center`. Hint: take a look at this list in the console, to see what its elements are named. Name these two columns `Center.x` and `Center.y`. Display the first 3 rows and all 12 columns of `state.df`.
+
+```{r}
+state.df$Center.x <- state.center$x
+state.df$Center.y <- state.center$y
+head(state.df, 3)
+```
+
+
+- **2d.** (0.3 point) Make a new data frame which contains only those states whose longitude is less than -100. Do this in two different ways: using manual indexing, and `subset`(). Check that they are equal to each other, using an appropriate function call.
+
+```{r}
+identical(subset(state.df, Center.x < -100), 
+          state.df[state.df$Center.x < -100,]) # equivalent
+```
+
+- **2e.** (0.3 point) Make a new data frame which contains only the states whose longitude is less than -100, and whose murder rate is above 9%. Print this new data frame to the console. Among the states in this new data frame, which has the highest average life expectancy?
+
+```{r}
+state.df2 <- subset(state.df, Center.x < -100 & Murder > 9)
+state.df2
+rownames(state.df2[state.df2$Life.Exp == max(state.df2$Life.Exp),]) # California
+```
+
+Rio Olympics data set
+===
+
+Now we're going to examine data from the 2016 Summer Olympics in Rio de Janeiro, taken from https://github.com/flother/rio2016 (itself put together by scraping the official Summer Olympics website for information about the athletes). Read in the data and store it as `rio`.
+
+```{r, eval=TRUE}
+rio = read.csv("./rio.csv")
+```
+
+Practice with data frames and apply
+===
+
+- **3a.** (0.3 point) What kind of object is rio? What are its dimensions and columns names of `rio`? What does each row represent? Is there any missing data?
+
+```{r}
+class(rio) # data.frame
+dim(rio) # 12 columns and 11538 rows
+head(rio) # Looks like each row is a competitor in the rio olympics
+sum(is.na(rio)) # 989 missing values
+```
+
+- **3b.** (0.4 point) Use `rio` to answer the following questions. How many athletes competed in the 2016 Summer Olympics? How many countries were represented? What were these countries, and how many athletes competed for each one? Which country brought the most athletes, and how many was this? 
+
+```{r}
+nrow(rio) # 11538 athletes
+length(unique(rio$nationality)) # 207 countries
+table(rio$nationality)
+table(rio$nationality)[table(rio$nationality) == max(table(rio$nationality))]
+```
+
+The USA brought the most athletes (obviously), with 567 atheletes attending.
+
+- **3c.** (0.4 point) How many medals of each type---gold, silver, bronze---were awarded at this Olympics? Are they equal? Is this result surprising, and can you explain what you are seeing?
+
+```{r}
+colSums(rio[, c("gold", "silver", "bronze")])
+```
+
+They're  not exactly equal, but pretty close. The discrepancy may be due to teams of slightly different sizes? Or possible perfect ties?
+
+- **3d.** (0.4 point) Create a column called `total` which adds the number of gold, silver, and bronze medals for each athlete, and add this column to `rio`. Which athlete had the most number of medals and how many was this? Gold medals? Silver medals? In the case of ties, here, display all the relevant athletes. 
+
+```{r}
+rio$total <- rowSums(rio[c("gold", "silver", "bronze")])
+rio[rio$total == max(rio$total), c("name", "gold", "silver", "bronze", "total")]
+```
+
+No ties, it's Michael Phelps, with five golds and one silver.
+
+- **3e.** (0.4 point) Using `tapply()`, calculate the total medal count for each country. Save the result as `total.by.nat`, and print it to the console. Which country had the most number of medals, and how many was this? How many countries had zero medals?
+
+```{r}
+total.by.nat <- tapply(rio$total, rio$nationality, sum)
+total.by.nat
+total.by.nat[total.by.nat == max(total.by.nat)] # USA with 264
+length(total.by.nat[total.by.nat == 0]) # 120 countries with no medals :(
+```
+
+- **3f.** (0.4 point) Among the countries that had zero medals, which had the most athletes, and how many athletes was this? (Ouch!)
+
+```{r}
+rio0 <- rio[rio$nationality %in% names(total.by.nat[total.by.nat == 0]), ]
+table(rio0$nationality)[table(rio0$nationality) == max(table(rio0$nationality))]
+```
+
+CHI had 0 medals, but 42 athletes. This is probably Chile, not China!
+
+Young and old folks
+===
+
+- **4a.** (0.4 point) The variable `date_of_birth` contains strings of the date of birth of each athlete. Use text processing commands to extract the year of birth, and create a new numeric variable called `age`, equal to 2016 - (the year of birth). (Here we're ignoring days and months for simplicity.) Add the `age` variable to the `rio` data frame. variable  Who is the oldest athlete, and how old is he/she? Youngest athlete, and how old is he/she? In the case of ties, here, display all the relevant athletes. Hint: use `2016-as.numeric(substr(rio$date_of_birth,1,4))` to obtain age. 
+
+```{r}
+# an alternative
+rio$age <- 2016 - as.numeric(format(as.Date(rio$date_of_birth), "%Y"))
+rio[rio$age == max(rio$age), ]
+rio[rio$age == min(rio$age), ]
+```
+
+There are two oldest athletes, both equestrians, aged 62, and 8 youngest, all aquatics, aged 14. 
+
+- **4b.** (0.4 point) Answer the same questions as in the last part, but now only among athletes who won a medal.
+
+```{r}
+rio[rio$age == max(rio$age) & rio$total > 0, ]
+rio[rio$age == min(rio$age) & rio$total > 0, ]
+```
+
+Looks like none of these oldest or youngest athletes won any medals.
+
+- **4c.** (0.4 point) Using a single call to `tapply()`, answer: how old are the youngest and oldest athletes, for each sport? 
+
+```{r}
+sport_ages <- tapply(rio$age, rio$sport, FUN = function(x) c(Youngest=min(x), Oldest=max(x))) 
+```
+
+- **4d.** (0.4 point) You should see that your output from `tapply()` in the last part is a list, which is not particularly convenient. Convert this list into a matrix that has one row for each sport, and two columns that display the ages of the youngest and oldest athletes in that sport. The first 3 rows should look like this:
+```
+                  Youngest Oldest
+aquatics               14     41
+archery                17     44
+athletics              16     47
+```
+
+```{r}
+sport_ages_simple <- do.call(rbind, sport_ages)
+```
+
+  You'll notice that we set the row names according to the sports, and we also set appropriate column names. Hint: `unlist()` will unravel all the values in a list; and `matrix()`, as you've seen before, can be used to create a matrix from a vector of values. After you've converted the results to a matrix, print it to the console (and make sure its first 3 rows match those displayed above).
+
+```{r}
+head(sport_ages_simple, 3)
+```
+
+- **4e.** (0.4 point) Was that conversion in the last part annoying? 
+
+Not really :)
+
+Replace the original call to `tapply()` in Q4c by a call to one of the `d*ply()` functions from the `plyr()` package, in order to directly create a matrix as you sought in Q4d.
+
+```{r}
+library(plyr)
+daply(rio, "sport", function(x) c(Youngest = min(x$age), Oldest = max(x$age)))
+```
+
+- **4f.** (0.4 point) Determine the *names* of the youngest and oldest athletes in each sport, without using any explicit iteration. In the case of ties, just return one relevant athlete name. Again, the `d*ply()` functions from the `plyr` package provide a clean solution.
+
+```{r}
+ddply(rio, "sport", 
+      function(x) c(Youngest = x$name[x$age == min(x$age)][1],
+                    Oldest = x$name[x$age == max(x$age)][1]))
+```
+
+Sport by sport
+===
+
+- **5a.** (0.4 point) Create a new data frame called `sports`, which we'll populate with information about each sporting event at the Summer Olympics. Initially, define `sports` to contain a single variable called `sport` which contains the names of the sporting events in alphabetical order. Then, add a column called `n_participants` which contains the number of participants in each sport. Use one of the apply functions to determine the number of gold medals given out for each sport, and add this as a column called `n_gold`. Using your newly created `sports` data frame, calculate the ratio of the number of gold medals to participants for each sport. Which sport has the highest ratio? Which has the lowest?
+
+```{r}
+sports <- data.frame(sport = unique(rio$sport[order(rio$sport)]), 
+                     n_participants = as.data.frame(table(rio$sport))$Freq)
+
+sports$n_gold <- daply(rio, "sport", function(x) sum(x$gold))
+```
+
+
+- **5b.** (0.4 point) Use one of the apply functions to compute the average weight of the participants in each sport, and add this as a column to `sports` called `ave_weight`. Important: there are missing weights in the data set coded as `NA`, but your column `ave_weight` should ignore these, i.e., it should be itself free of `NA` values. You will have to pass an additional argument to your apply call in order to achieve this. Hint: look at the help file for the `mean()` function; what argument can you set to ignore `NA` values? Once computed, display the average weights along with corresponding sport names, in decreasing order of average weight.
+
+```{r}
+sports$ave_weight <- daply(rio, "sport", 
+                           function(x) mean(x$weight, na.rm=TRUE))
+
+sports[order(sports$ave_weight, decreasing = TRUE), c("sport", "ave_weight")]
+```
+
+- **5c.** (0.4 point) As in the last part, compute the average weight of atheletes in each sport, but now separately for men and women. You should therefore add two new columns, called `ave_weight_men` and `ave_weight_women`, to `sports`. Once computed, display the average weights along with corresponding sports, for men and women, each list sorted in decreasing order of average weight. Are the orderings roughly similar?
+
+```{r}
+sports$ave_weight_men <- daply(rio[rio$sex == "male", ], "sport", 
+                           function(x) mean(x$weight, na.rm=TRUE))
+sports$ave_weight_women <- daply(rio[rio$sex == "female", ], "sport", 
+                           function(x) mean(x$weight, na.rm=TRUE))
+
+cbind(sports[order(sports$ave_weight, decreasing = TRUE), 
+             c("sport", "ave_weight_men")], 
+      sports[order(sports$ave_weight, decreasing = TRUE), 
+             c("sport", "ave_weight_women")])
+```
+
+The orderings appear identical! Something is probably wrong with my code, but if not, it means the costs and benefits of weight across sports do not differ from men to women. If such a pattern is true in general, it's not surprising to see this relationship followed so perfectly here, since we're talking about the most elite of athletic competitions -- optimal body shape and size for a given sport is likely very important at this level!
+
+- **5d.** (0.4 point) Repeat the calculation as in the last part, but with BMI (body mass index) replacing weight. 
+
+```{r}
+
+sports$ave_bmi_men <- daply(rio[rio$sex == "male", ], "sport", 
+                           function(x) mean(x$weight/x$height^2, na.rm=TRUE))
+sports$ave_bmi_women <- daply(rio[rio$sex == "female", ], "sport", 
+                           function(x) mean(x$weight/x$height^2, na.rm=TRUE))
+
+cbind(sports[order(sports$ave_weight, decreasing = TRUE), 
+             c("sport", "ave_bmi_men")], 
+      sports[order(sports$ave_weight, decreasing = TRUE), 
+             c("sport", "ave_weight_men")])
+```
+
+
+- **5e.** (0.4 point) Use one of the apply functions to compute the proportion of women among participating atheletes in each sport. Use these proportions to recompute the average weight (over all athletes in each sport) from the `ave_weight_men` and `average_weight_women` columns, and define a new column `ave_weight2` accordingly. Does `ave_weight2` differ from `ave_weight`? It should. Explain why. Then show how to recompute the average weight from `ave_weight_men` and `average_weight_women` in a way that exactly recreates `average_weight`.
+
+```{r}
+sports$p_women <- daply(rio, "sport", 
+                        function(x) sum(x$sex == "female") / length(x$sex))
+
+sports$ave_weight2 <- sports$p_women * sports$ave_weight_women + 
+  (1 - sports$p_women) * sports$ave_weight_men
+
+sports[, c("ave_weight", "ave_weight2")]
+```
+
+Indeed they are slightly different. I think it's because of missing weight values, which get excluded when calculating average weights, but not when counting women. 
+
+```{r}
+sum(is.na(rio$sex)) # no missing values
+sum(is.na(rio$weight[rio$sport != "boxing"])) # 373 missing values!
+
+sports$p_women2 <- daply(rio[!is.na(rio$weight) | rio$sport == "boxing", ], 
+                         "sport", 
+                        function(x) sum(x$sex == "female") / length(x$sex))
+
+sports$ave_weight2 <- sports$p_women2 * sports$ave_weight_women + 
+  (1 - sports$p_women2) * sports$ave_weight_men
+
+sports[, c("sport", "p_women", "p_women2", "ave_weight", "ave_weight2")]
+```
+
+TADA!

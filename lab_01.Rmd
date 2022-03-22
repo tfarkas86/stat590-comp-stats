@@ -1,0 +1,370 @@
+---
+title: 'Lab 1: Data types, operators, variables, data structures, indexing, and iteration'
+author: "Statistical Computing"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, autodep=TRUE, cache.comments=TRUE)
+```
+
+Name:  Tim Farkas
+Collaborated with:  
+
+This lab is to be done in class (completed outside of class if need be). You can collaborate with your classmates, but you must identify their names above, and you must submit **your own** lab as an knitted pdf file. To answer the questions, display the results and write your comments if asked.
+
+
+```{r}
+## For reproducibility --- don't change this!
+set.seed(01182018)
+```
+
+```{r}
+library(tidyverse)
+```
+
+
+The binomial distribution
+===
+
+The binomial distribution $\mathrm{Bin}(m,p)$ is defined by the number of successes in $m$ independent trials, each have probability $p$ of success. Think of flipping a coin $m$ times, where the coin is weighted to have probability $p$ of landing on heads.
+
+The R function `rbinom()` generates random variables with a binomial distribution. E.g., 
+
+```{r, eval=FALSE}
+rbinom(n=20, size=10, prob=0.5)
+```
+
+produces 20 observations from $\mathrm{Bin}(10,0.5)$. If you change "eval=FALSE" to "eval=TRUE", it will run the code and display the numbers.
+
+Some simple manipulations
+===
+
+
+- **1a.** Generate 200 random values from the $\mathrm{Bin}(10,0.5)$ distribution, and store them in a vector called `bin.draws.0.5`. Extract and display the first 10 elements.
+
+```{r}
+bin.draws.0.5 <- rbinom(200, 10, 0.5)
+bin.draws.0.5[1:10]
+```
+
+- **1b.** Compare the second element to the fifth, which is larger? A bit more tricky: print the indices of the elements of `bin.draws.0.5` that are equal to 5. How many such elements are there?  Theoretically, how many such elements would you expect there to be?
+
+```{r}
+bin.draws.0.5[2] - bin.draws.0.5[5] # the 2nd is 4 less than the 5th 
+which(bin.draws.0.5 == 5)
+dbinom(5, 10, 0.5) * 200 # 49
+```
+
+Based on the theoretical binomial distribution, the probability of five positives is 24.6%, which multiplied by 200 is ~ 49 cases.  
+
+- **1c.** Find the mean and standard deviation of `bin.draws.0.5`. Is the mean close what you'd expect? The standard deviation?
+
+```{r}
+mean(bin.draws.0.5) # mean = 5.145
+sd(bin.draws.0.5) # sd = 1.57
+```
+
+The mean should be about 5, since 0.5 * 10 trials = 5 positives. Knowing the expected value of the binomial is $np$ confirms the intuition. I'm not sure about intuition for the sd, but the sd of the binomial is $\sqrt{np(1-p)} = \sqrt{10 \times 0.5 \times 0.5} \approx 1.58$, which is very close to 1.57. 
+
+- **1d.** Call `summary()` on `bin.draws.0.5` and describe the result.
+
+```{r}
+summary(bin.draws.0.5)
+```
+
+The summary shows the minimum and maximum of the sample (2 and 9), along with the mean (= 5.08), and quartiles (4, 5, 6). I'm surprised there's no 0s, 1s, or 10s in a sample of 200, but my intuition fails me often. 
+
+- **1e.** Find the data type of the elements in `bin.draws.0.5` using `typeof()`. Then convert `bin.draws.0.5` to a vector of characters, storing the result as `bin.draws.0.5.char`, and use `typeof()` again to verify that you've done the conversion correctly. Call `summary()` on `bin.draws.0.5.char`. Is the result formatted differently from what you saw above? Why?
+
+```{r}
+typeof(bin.draws.0.5) # integers
+bin.draws.0.5.char <- as.character(bin.draws.0.5)
+typeof(bin.draws.0.5.char)
+summary(bin.draws.0.5.char)
+```
+The summary on character data is different from on numeric data, as expected, simply showing the number of elements and the class and mode of the data. 
+
+Some simple plots
+===
+
+- **2a.** The function `plot()` is a generic function in R for the visual display of data. The function `hist()` specifically produces a histogram display. Use `hist()` to produce a histogram of your random draws from the binomial distribution, stored in `bin.draws.0.5`. 
+
+```{r}
+hist(bin.draws.0.5)
+```
+
+- **2b.** Call `tabulate()` on `bin.draws.0.5`. What is being shown? Does it roughly match the histogram you produced in the last question?
+
+```{r}
+tabulate(bin.draws.0.5)
+```
+Almost -- it appears that `hist()` is binning the 2s and 3s together. We could pass `breaks = 0:9` as an argument to `hist()` to get the same results. 
+
+```{r}
+x <- hist(bin.draws.0.5, breaks = 0:9)
+identical(x$counts, tabulate(bin.draws.0.5))
+```
+
+- **2c.** Call `plot()` on `bin.draws.0.5` to display your random values from the binomial distribution. Can you guess what the `plot()` function is doing here?
+
+```{r}
+plot(bin.draws.0.5)
+```
+
+It is plotting the value index (1 - 200) on the x-axis and the random draw on the y. 
+
+- **2d.** Call `plot()` with two arguments, the first being `1:200`, and the second being `bin.draws.0.5`. This creates a scatterplot of `bin.draws.0.5` (on the y-axis) versus the indices 1 through 200 (on the x-axis). Does this match your plot from the last question?
+
+```{r}
+plot(x = 1:200, y = bin.draws.0.5)
+```
+Yes, except the x-axis label no longer indicates that it represents indices.
+
+More binomials, more plots
+===
+
+- **3a.** Generate 200 binomials again, but change the probability of success to: 0.2, 0.3, 0.4, 0.6, 0.7, and 0.8, storing the results in vectors called `bin.draws.0.2`, `bin.draws.0.3`, `bin.draws.0.4.`, `bin.draws.0.6`, `bin.draws.0.7` and  `bin.draws.0.8`. For each, compute the mean and standard deviation.
+
+```{r}
+probs <- seq(.2, .8, by = .1)
+bin_list <- map(probs, ~ {
+  rbinom(n = 200, size = 10, prob = .x)
+}) %>% set_names(paste0("bin.draws.", as.character(probs)))
+
+unlist(map(bin_list, ~ mean(.x)))
+unlist(map(bin_list, ~ sd(.x)))
+```
+
+Sorry, I couldn't help myself. Technically, these *are* vectors named as requested ... 
+
+- **3b.** We'd like to compare the properties of our vectors. Create a vector of length 7, whose entries are the means of the 7 vectors we've created, in order according to the success probabilities of their underlying binomial distributions (0.2 through 0.8).
+
+```{r}
+bin_means <- unlist(map(bin_list, ~ mean(.x)))
+bin_sds <- unlist(map(bin_list, ~ sd(.x)))
+bin_means
+bin_sds
+```
+    
+- **3c.** Using the vectors from the last part, create the following scatterplots. Explain in words, for each, what's going on.
+    * The 7 means versus the 7 probabilities used to generate the draws.
+    * The standard deviations versus the probabilities.
+    * The standard deviations versus the means.
+    
+```{r}
+library(gridExtra)
+
+g1 <- ggplot() +
+  geom_point(aes(y = bin_means, x = probs))
+g2 <- ggplot() +
+  geom_point(aes(y = bin_sds, x = probs))
+g3 <- ggplot() +
+  geom_point(aes(y = bin_sds, x = bin_means))
+
+grid.arrange(g1, g2, g3)
+```
+
+For the first plot, we see a near-perfect linear relationship, which makes sense because the expected value for a binomial is proportional to the probability ($E(X) = Np$).
+
+For the second plot, the relationship between standard devation and probability shows a symmetrical, convex curve. This also makes sense, because the variance follows this same pattern, with a peak at intermediate probability ($V(X) = np(1 - p)$.
+
+The third plot is almost identical to the second because of the aforementioned, near-perfect linear relationship between probabilty and mean. 
+
+
+
+Working with matrices
+===
+
+- **4a.** Create a matrix of dimension 200 x 7, called `bin.matrix`, whose columns contain the 7 vectors we've created, in order of the success probabilities of their underlying binomial distributions (0.2 through 0.8). Hint: use `cbind()`.
+
+```{r}
+bin_mat <- do.call(cbind, bin_list) 
+head(bin_mat)
+```
+
+- **4b.** Calculate the column means of `bin.matrix` by using just a single function call.
+
+```{r}
+colMeans(bin_mat)
+```
+
+- **4c.** Compare the means you computed in the last question to those you computed in Q3b, in two ways. First, using `==`, and second, using `identical()`. What do the two ways report? Are the results compatible? Explain.
+
+```{r}
+colMeans(bin_mat) == bin_means
+identical(colMeans(bin_mat), bin_means)
+```
+
+The first approach returns pairwise logical comparisons, here showing the values are all equal. `identical` checks that the R objects are equal, returning TRUE if so. R objects contain more than just the values in the data structure, such as names and other metadata. If I change the column names to something more manageable, the `identical` check fails:
+
+```{r}
+colnames(bin_mat) <- paste0("p", probs)
+identical(colMeans(bin_mat), bin_means)
+```
+
+Prostate cancer data set
+===
+
+We're going to look at a data set on 97 men who have prostate cancer (from the book [The Elements of Statistical Learning](http://statweb.stanford.edu/~hastie/ElemStatLearn/)). There are 9 variables measured on these 97 men:
+
+1. `lpsa`: log PSA score
+2. `lcavol`: log cancer volume
+3. `lweight`: log prostate weight
+4. `age`: age of patient
+5. `lbph`: log of the amount of benign prostatic hyperplasia
+6. `svi`: seminal vesicle invasion
+7. `lcp`: log of capsular penetration
+8. `gleason`: Gleason score 
+9. ` pgg45`: percent of Gleason scores 4 or 5 
+
+To load this prostate cancer data set into your R session, and store it as a matrix `pros.dat`:
+
+```{r}
+pros.dat =
+  as.matrix(read.table("https://web.stanford.edu/~hastie/ElemStatLearn/datasets/prostate.data"))
+```
+
+Basic indexing and calculations
+===
+
+- **5a.** What are the dimensions of `pros.dat` (i.e., how many rows and how many columns)? Using integer indexing, print the first 6 rows and all columns; again using integer indexing, print the last 6 rows and all columns. 
+
+```{r}
+dim(pros.dat) # 97 rows, 10 columns
+pros.dat[1:6,]
+pros.dat[(nrow(pros.dat)-5):nrow(pros.dat),]
+```
+
+- **5b.** Using the built-in R functions `head()` and `tail()` (i.e., do *not* use integer indexing), print the first 6 rows and all columns, and also the last 6 rows and all columns.
+
+```{r}
+head(pros.dat, 6)
+tail(pros.dat, 6)
+```
+
+- **5c.** Does the matrix `pros.dat` have names assigned to its rows and columns, and if so, what are they? Use `rownames()` and `colnames()` to find out. Note: these would have been automatically created by the `read.table()` function that we used above to read the data file into our R session. To see where `read.table()` would have gotten these names from, open up the data file: https://web.stanford.edu/~hastie/ElemStatLearn/datasets/prostate.data in your web browser. Only the column names here are actually informative.
+
+```{r}
+rownames(pros.dat) # automatic row numbers
+colnames(pros.dat) # variable names
+```
+
+- **5d.** Using named indexing, pull out the two columns of `pros.dat` that measure the log cancer volume and the log cancer weight, and store the result as a matrix `pros.dat.sub`. (Recall the explanation of variables at the top of this lab.) Check that its dimensions make sense to you, and that its first 6 rows are what you'd expect. Did R automatically assign column names to `pros.dat.sub`?
+
+```{r}
+pros.dat.sub <- pros.dat[, c("lcavol", "lweight")]
+```
+
+- **5e.** Using the log cancer weights and log cancer volumes, calculate the log cancer density for the 97 men in the data set (note: by density here we mean weight divided by volume). There are in fact two different ways to do this; the first uses two function calls and one arithmetic operation; the second just uses one arithmetic operation. Note: in either case, you should be able to perform this computation for all 97 men *with a single line of code*, taking advantage of R's ability to vectorize. Write code to do it both ways, and show that both ways lead to the same answer, using `all.equal()`.
+
+```{r}
+ldens1 <- log(exp(pros.dat.sub[, "lweight"]) /
+                exp(pros.dat.sub[, "lcavol"]))
+ldens2 <- pros.dat.sub[, "lweight"] - pros.dat.sub[, "lcavol"]
+all.equal(ldens1, ldens2)
+```
+
+- **5f.** Append the log cancer density to the columns of `pros.dat`, using `cbind()`. Set the last column name to be `ldens`. Print its first 6 rows, to check that you've done all this right.
+
+```{r}
+pros.dat <- cbind(pros.dat, ldens = ldens1)
+head(pros.dat)
+```
+
+Exploratory data analysis with plots
+===
+
+- **6a.** Using `hist()`, produce a histogram of the log cancer volume measurements of the 97 men in the data set; also produce a histogram of the log cancer weight. In each case, use `breaks=20` as an arugment to `hist()`. Comment just briefly on the distributions you see. Then, using `plot()`, produce a scatterplot of the log cancer volume (y-axis) versus the log cancer weight (x-axis). Do you see any kind of relationship? Would you expect to? **Challenge**: how would you measure the strength of this relationship formally? Note that there is certainly more than one way to do so. We'll talk about statistical modeling tools later in the course.
+
+```{r}
+par(mfrow = c(1, 2))
+hist(pros.dat[, "lcavol"], breaks = 20,
+     main = NULL, xlab = "log cancer volume")
+hist(pros.dat[, "lweight"], breaks = 20, 
+     main = NULL, xlab = "log cancer weight")
+dev.off()
+```
+
+I see reasonably bell-shaped distribution for both variables, though volume appears to have a fat left tail. 
+
+```{r}
+plot(x = pros.dat[, "lcavol"], y = pros.dat[, "lweight"] )
+```
+
+I think there's a weak positive relationship between the variables. I think we should expect this relationship, since an increase in volume should lead to an increase in mass, assuming density is constant. 
+
+I would measure the strength of this relationship with an $R^2$ value, probably.
+
+- **6b.** Produce scatterplots of log cancer weight versus age, and log cancer volume versus age. Do you see relationships here between the age of a patient and the volume/weight of his cancer?
+
+```{r}
+par(mfrow = c(1, 2))
+plot(y = pros.dat[, "lcavol"], x = pros.dat[, "age"], xlab = "age")
+plot(y = pros.dat[, "lweight"], x = pros.dat[, "age"], xlab = "age")
+dev.off()
+```
+
+Yeesh, I think maybe a slight positive relationship in both cases, but I wouldn't bet much on it. The pattern seems maybe stronger for weight, possibly indicating that density increase with age.  
+
+- **6c.** Produce a histogram of the log cancer density, and a scatterplot of the log cancer density versus age. Comment on any similarities/differences you see between these plots, and the corresponding ones you produced above for log cancer volume/weight.
+
+```{r}
+par(mfrow = c(1, 2))
+hist(pros.dat[, "ldens"], breaks = 20,
+     main = NULL, xlab = "log density")
+plot(y = pros.dat[, "ldens"], x = pros.dat[, "age"],
+     ylab = "log tumor density", xlab = "age")
+```
+
+Again, the histogram shows a bell curve -- possible better than the curves for weight and volume. The relationship between age and density looks possibly posisblve, but is similarly weak comparing to weight and volume.
+
+A bit of Boolean indexing never hurt anyone
+===
+
+- **7a.** The `svi` variable in the `pros.dat` matrix is binary: 1 if the patient had a condition called "seminal vesicle invasion" or SVI, and 0 otherwise. SVI (which means, roughly speaking, that the cancer invaded into the muscular wall of the seminal vesicle) is bad: if it occurs, then it is believed the prognosis for the patient is poorer, and even once/if recovered, the patient is more likely to have prostate cancer return in the future. Compute a Boolean vector called `has.svi`, of length 97, that has a `TRUE` element if a row (patient) in `pros.dat` has SVI, and `FALSE` otherwise. Then using `sum()`, figure out how many patients have SVI.
+
+```{r}
+has.svi <- as.logical(pros.dat[, "svi"])
+sum(has.svi)
+```
+
+- **7b.** Extract the rows of `pros.dat` that correspond to patients with SVI, and the rows that correspond to patients without it. Call the resulting matrices `pros.dat.svi` and `pros.dat.no.svi`, respectively. You can do this in two ways: using the `has.svi` Boolean vector created above, or using on-the-fly Boolean indexing, it's up to you. Check that the dimensions of `pros.dat.svi` and `pros.dat.no.svi` make sense to you.
+
+```{r}
+pros.dat.svi <- pros.dat[has.svi, ]
+pros.dat.no.svi <- pros.dat[!has.svi, ]
+dim(pros.dat.svi) # 21 x 12
+dim(pros.dat.no.svi) # 76 x 12
+```
+
+Computing standard deviations using iteration
+===
+
+- **8a.** Take a look at the starter code below. The first line defines an empty vector `pros.dat.svi.sd` of length `ncol(pros.dat)`. The second line defines an index variable `i` and sets it equal to 1. Write a third line of code to compute the standard deviation of the `i`th column of `pros.dat.svi`, using a built-in R function, and store this value in the `i`th element of `pros.dat.svi.sd`. 
+ 
+```{r}
+pros.dat.svi.sd <- vector(mode = "numeric", length = ncol(pros.dat))
+i <- 1
+pros.dat.svi.sd[i] <- sd(pros.dat.svi[,i])
+```
+
+- **8b.** Write a `for()` loop to compute the standard deviations of the columns of `pros.dat.svi`, and store the results in the vectors `pros.dat.svi.sd`, that were created above. Note: you should have a single `for()` loop here, not two for loops. And if it helps, consider breaking this task down into two steps: as the first step, write a `for()` loop that iterates an index variable `i` over the integers between 1 and the number of columns of `pros.dat`, with an empty body. 
+
+```{r}
+pros.dat.svi.sd <- vector(mode = "numeric", length = ncol(pros.dat))
+for(i in 1:length(pros.dat.svi.sd)) pros.dat.svi.sd[i] <- sd(pros.dat.svi[, i])
+pros.dat.svi.sd
+```
+
+
+- **8c.** The code below computes the standard deviations of the columns of `pros.dat.svi`, and stores them in `pros.dat.svi.sd.master`, using `apply()`. (We'll learn `apply()` and related functions a bit later in the course.) Remove `eval=FALSE` as an option to the Rmd code chunk, and check using `all.equal()` that the standard deviations you computed in the previous question equal these "master" copies. Note: use `check.names=FALSE` as a third argument to `all.equal()`, which instructs it to ignore the names of its first two arguments. (If `all.equal()` doesn't succeed in both cases, then you must have done something wrong in computing the standard deviations, so go back and fix them!)
+
+```{r}
+pros.dat.svi.sd.master <- apply(pros.dat.svi, MARGIN = 2, FUN = sd)
+all.equal(pros.dat.svi.sd.master, pros.dat.svi.sd, check.names = FALSE)
+```
+

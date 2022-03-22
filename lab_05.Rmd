@@ -1,0 +1,722 @@
+---
+title: 'Lab 7: Reading in, Reordering, and Merging Data'
+author: "Statistical Computing"
+output: pdf_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, autodep=TRUE, cache.comments=TRUE)
+```
+
+Name:  
+Collaborated with:  
+
+
+Reading and cleaning data
+===
+
+- **1a.** (0.3 point) Use `read.table()` to read into R the data sets found at http://www.stat.cmu.edu/~ryantibs/statcomp/data/sprint.m.dat and http://www.stat.cmu.edu/~ryantibs/statcomp/data/sprint.w.dat, and call the resulting data frames `sprint.m.df` and `sprint.w.df`, respectively. Make sure to use appropriate arguments in `read.table()`, you can check the lecture for what is needed. Also, make usre to set the argument `stringsAsFactors` to be `TRUE`. Verify that you end up with data frames of dimensions 2988 x 8 (for the men's data) and 2018 x 8 (for the women's data). Display the first five rows of both data frames.
+
+```{r}
+library(tidyverse)
+library(magrittr)
+```
+
+```{r}
+
+sprint.m.df.li <- read_delim(url("http://www.stat.cmu.edu/~ryantibs/statcomp/data/sprint.m.dat"), delim="\t", col_types="idnfffff")
+
+sprint.f.df.li <- read_delim(url("http://www.stat.cmu.edu/~ryantibs/statcomp/data/sprint.w.dat"), delim="\t", col_types="idcfffff")
+
+sprint.m.df <- read_delim(url("http://www.stat.cmu.edu/~ryantibs/statcomp/data/sprint.m.dat"), delim="\t", col_types="idnffcfc")
+
+sprint.f.df <- read_delim(url("http://www.stat.cmu.edu/~ryantibs/statcomp/data/sprint.w.dat"), delim="\t", col_types="idcffcfc") %>%
+    mutate(across(Wind, ~ as.numeric(str_replace(.x, ",", "."))))
+```
+
+Sorry, I couldn't find your code about `read.table`, and the modern functions from `readr` in the tidyverse, which are well kept, manage data import here without trouble. I also use mutate to modify `Wind` in place, for females only where the decimal separator is a comma. One row shows `2,0,0` which is too ambiguous to coerce in any case, so we leave this as `NA`. 
+
+
+- **1b.**  (0.3 point) Since we set `stringsAsFactors=TRUE` in the previous part, the function `read.table()` treated the values in the `Wind` column as factors. (The values would've been strings otherwise). We want to convert these factors to numerics. Converting factors to numerics can be an annoyingly frustrating task in general, so it's good to practice it. These next two questions will guide you on how to do this.
+
+    We provide a test string `input.value` below, which is "4,8". Use functions you have seen in previous weeks on text processing to convert `input.value` to contain the numeric `4.8` instead. Display the converted value and check its class to ensure it is a numeric. Hint: there are multiple ways to do the conversion; perhaps the most familiar way will be to use `strsplit()` to separate `input.value` by the comma, and then use `paste()` function to concatenate the "4" with the "8", separated by ".", and then finally use `as.numeric()`.
+    
+```{r}
+input.value = "4,8"
+output.value = as.numeric(str_replace(input.value, ",", "."))
+typeof(output.value)
+```
+
+- **1c.**  (0.3 point) Now we will write a function to repeatedly apply the strategy from the last part to elements of a vector. Below is a vector `wind.measurements` of *factors* (note: not strings) for you to play around with, as a testing ground. Write a function `factor.to.numeric()` that takes in a vector of factors and outputs a vector of corresponding numerics. Verify that `factor.to.numeric(wind.measurements)` returns `c(-2.0, 0.0, 0.6, 1.7)` (or equivalent numbers, e.g., `2` instead of `2.0` is fine).
+
+```{r}
+wind.measurements = as.factor(c("-2,0", "0,0", "0,6", "+1,7"))
+
+factor.to.numeric <- function(fct) {
+  as.numeric(str_replace(as.character(fct), ",", "."))
+}
+
+factor.to.numeric(wind.measurements)
+```
+
+- **1d.**  (0.3 point) Using `factor.to.numeric()`, convert the `Wind` column of `sprint.m.df` and `sprint.w.df` into numeric variables. However, you might get exactly one `NA` from this process in `sprint.w.df` (or get no `NA`s depending on you how wrote your function). If you do, what was the wind entry that failed to be converted into a numeric (hence becoming `NA`)? In words, can you describe why this `NA` occurred? (This will require you to reload the `sprint.w.df` from the beginning to see what certain values in the `Wind` column were before we used the `factor.to.numeric()`.) If needed, you should manually fix this `NA`. Then, display the first five rows of `sprint.m.df` and `sprint.w.df`.
+
+```{r}
+sprint.f.df.li  %<>%
+  mutate(across(Wind, ~ factor.to.numeric(.x))) 
+
+sprint.m.df.li  %<>%
+  mutate(across(Wind, ~ factor.to.numeric(.x))) 
+
+sprint.m.df.li %>%
+  head(5)
+sprint.f.df.li %>% head(5)
+```
+
+As I said above, the `NA` value is because of a bad entry of `2,0,0`. I don't want to change it, let's leave this as NA. 
+
+
+- **1e.**  (0.3 point) For each of the men's and women's data frames, plot the the 100m sprint time versus the wind measurements, setting the `pch` appropriately so that the points are solid small black dots. Label the axes and title the plot appropriately. Do you notice a trend---does more wind assistance mean faster sprint times? Where do the fastest men's time, and for the fastest women's time, lie among this trend? (Remark: there's an interesting story behind the wind measurement that was recorded for the fastest women's time, you might enjoy reading about it online ...)
+
+```{r}
+sprint.m.df %>%
+  mutate(gender = "Men", .before=Rank) %>%
+  bind_rows(sprint.f.df %>%
+              mutate(gender = "Women", .before = Rank)) %>%
+  ggplot() + 
+  geom_point(aes(x = Wind, y = Time)) + 
+  facet_wrap(~ gender, scales = "free") + 
+  ggtitle("100m Times vs. Wind by Gender")
+```
+
+Yes, there's a clear pattern showing that wind slows runners down. The fastest women's and men's times occur with wind at runners' backs. The data appear truncated at wind speeds of 2 and some maximum race times, so patters at the extremes are hard to visualize. 
+
+Reordering data
+====
+
+- **2a.**  (0.3 point) Notice that the `Birthdate` and `Date` columns in both data frames `sprint.m.df` and `sprint.w.df` are currently factors that follow the format `DAY.MONTH.YEAR`. Write a function called `date.to.vector()` that takes in a factor from either the `Birthdate` or `Date` columns, and outputs a numeric of the form `DAY + (MONTH)*10^2 + (YEAR)*10^4`. For example, `date.to.numeric(as.factor("16.08.2009"))` should return the numeric `20090816`. Then, use one of the apply functions to iteratively use `date.to.numeric()` on both the `Birthdate` and `Date` columns in both the `sprint.m.df` and `sprint.w.df` data frames, converting these columns to numerics as appropriate. Print out the first five lines of `sprint.m.df` and `sprint.w.df` afterwards. Note: the dates in `Birthdate` have only the last two numbers of the year, while `Date` has all four numbers of the year (e.g., `86` vs. `1986`). Your code should handle this appropriately.
+
+```{r}
+
+date <- sprint.f.df.li$Birthdate[1]
+date.to.numeric <- function(date) {
+  
+  datechar <- as.character(date)
+  datecharsplit <- strsplit(datechar, split = ".", 
+                            fixed=TRUE)[[1]]
+  day = as.numeric(datecharsplit[1])
+  month = as.numeric(datecharsplit[2])
+  year = ifelse(nchar(datecharsplit[3]) == 4,
+                as.numeric(datecharsplit[3]),
+                1900 + as.numeric(datecharsplit[3]))
+  
+  outdate <- day + month * 10^2 + year * 10^4
+  return(outdate)
+  
+}
+
+date.to.numeric(date)
+
+# using dplyr
+sprint.f.df.li %>%
+  mutate(across(c(Birthdate, Date), ~ date.to.numeric(.x))) %>%
+  head(5)
+
+sprint.m.df.li %>%
+  mutate(across(c(Birthdate, Date), ~ date.to.numeric(.x))) %>%
+  head(5)
+
+# using lapply
+
+sprint.f.df.li$Birthdate <- sapply(sprint.f.df.li$Birthdate,
+                                   date.to.numeric)
+sprint.m.df.li$Birthdate <- sapply(sprint.m.df.li$Birthdate,
+                                   date.to.numeric)
+sprint.f.df.li$Date <- sapply(sprint.f.df.li$Date,
+                                   date.to.numeric)
+sprint.m.df.li$Date <- sapply(sprint.m.df.li$Date,
+                                   date.to.numeric)
+```
+
+- **2b.**  (0.3 point) Reorder both data frames  `sprint.m.df` and `sprint.w.df` so that their rows are in increasing order of `Date`. Print out the first five lines of `sprint.m.df` and `sprint.w.df` afterwards.
+
+```{r}
+sprint.f.df.li %<>%
+  arrange(Date) 
+
+sprint.m.df.li %<>%
+  arrange(Date) 
+
+head(sprint.f.df.li, 5)
+head(sprint.m.df.li, 5)
+```
+
+- **2c.**  (0.3 point) Create a column in both `sprint.m.df` and `sprint.w.df` called `City.Date`, given by concatenating the entries in the `City` and `Date` columns, separated by ".". For example, if the `City` is `Tokyo` and `Date` is `19641015`, then `City.Date` should be `Tokyo.19641015`. Print out the first five lines of `sprint.m.df` and `sprint.w.df` afterwards. 
+
+```{r}
+sprint.m.df.li %<>%
+  mutate(City.Date = paste(City, Date, sep=".")) 
+sprint.f.df.li %<>%
+  mutate(City.Date = paste(City, Date, sep=".")) 
+
+head(sprint.m.df.li)
+head(sprint.f.df.li)
+  
+```
+
+
+- **2d.**  (0.3 point) We now want to remove all duplicated sprints in each of `sprint.m.df` and `sprint.w.df`. Specifically, if multiple sprints (rows) in `sprint.m.df` occur on the same `City.Date`, we will only keep the fastest sprint and discard the rest. Do the same with `sprint.w.df`. Make sure at the end, all the rows in `sprint.m.df` and `sprint.w.df` are still sorted in order of `Date`, and if multiple sprints occur on the same date, then sort those sprints alphabetically by `City`. Your final `sprint.m.df` should have dimension 1253 x 9, while `sprint.w.df` should be 921 x 9. Display the first five lines of `sprint.m.df` and `sprint.w.df` afterwards. Hint: write a function to do the cleaning; then apply this function to each of the two data frames.
+
+```{r}
+sprint.f.df.li %<>%
+  group_by(City, Date) %>%
+  mutate(mintime = min(Time)) %>%
+  filter(Time == mintime) %>%
+  select(-mintime) %>%
+  arrange(Date, City) %>% view
+
+sprint.m.df.li %<>%
+  group_by(City, Date) %>%
+  mutate(mintime = min(Time)) %>%
+  filter(Time == mintime) %>%
+  select(-mintime) %>%
+  arrange(Date, City)
+
+head(sprint.f.df.li, 5)
+head(sprint.m.df.li, 5)
+```
+
+The number of distinct `City.Date` in for both males and females equals the numbers you state, but the number of records is larger, because of ties. 
+
+```{r}
+sprint.f.df.li %>%
+  inner_join(eval(.) %>%
+  group_by(City, Date) %>%
+  summarize(n = n()) %>%
+  filter(n > 1)) %>% head
+```
+
+- **2e.**  (0.3 point) Verify that in both `sprint.m.df` and `sprint.w.df`, each of the values in the `City.Date` column appear exactly once (i.e., there are no duplicated values).  
+
+There are duplicate values because of ties. I shant remove them. 
+
+Merging data
+===
+
+- **3a.**  (0.3 point) In preparation of merging `sprint.m.df` and `sprint.w.df`, we first wwant to find all the sprints that occur in the same race in both data frames. Specifically, remove all the rows in `sprint.m.df` that have a `City.Date` that does not occur in `sprint.w.df`. Likewise, remove all the rows in `sprint.w.df` that have a `City.Date` that does not occur in `sprint.m.df`. Then, remove the `City` and `Date` columns in both data frames. In the end, both `sprint.m.df` and `sprint.w.df` should have 377 rows and 7 columns. Print out the first five lines of `sprint.m.df` and `sprint.w.df` afterwards. Hint: you might find the `%in%` operator useful; try looking it its help file.
+
+```{r}
+# use a filtering join
+sprint.m.df.li %<>%
+  ungroup() %>%
+  semi_join(sprint.f.df.li, by = "City.Date") %>%
+  select(-c(City, Date))
+sprint.f.df.li %<>%
+  ungroup() %>%
+  semi_join(sprint.m.df.li, by = "City.Date") %>%
+  select(-c(City, Date))
+
+head(sprint.f.df.li, 5)
+head(sprint.m.df.li, 5)
+```
+
+- **3b.**  (0.3 point) We will now complete the manual merge of `sprint.m.df` and `sprint.w.df`. First, check the order of values in `City.Date` in `sprint.m.df` match exactly with those in `sprint.w.df`. Then, use `cbind()` to create a new data frame `sprint.df` that has 13 columns. The first column should be `City.Date`, the next 6 columns should contain all the remaining columns from `sprint.m.df`, and the last 6 columns should contain all the remaining columns form `sprint.w.df`. Of course, each row should correspond to sprints from the same `City.Date`. Print out the first five lines of `sprint.df` afterwards, and verify that its dimensions are 377 x 13.
+
+```{r}
+
+sprint.f.df.li %<>%
+    rowwise() %>%
+    group_by(City.Date) %>%
+    mutate(sorter = runif(1)) %>%
+    arrange(City.Date, sorter) %>%
+    mutate(ranker = row_number()) %>%
+    filter(ranker == 1) %>% 
+    select(-c(sorter, ranker))# %>%
+   # select(City.Date, Rank:Birthdate)
+
+sprint.m.df.li %<>%
+    rowwise() %>%
+    group_by(City.Date) %>%
+    mutate(sorter = runif(1)) %>%
+    arrange(City.Date, sorter) %>%
+    mutate(ranker = row_number()) %>%
+    filter(ranker == 1) %>% 
+    ungroup() %>%
+    select(-c(sorter, ranker)) #%>%
+    #select(-City.Date)
+
+sprint.df <- cbind(sprint.f.df.li %>%
+                     select(City.Date, Rank:Birthdate), 
+                   sprint.m.df.li %>%
+                     select(-City.Date)) 
+head(sprint.df)
+dim(sprint.df)
+
+```
+
+I randomly split ties for the merge. 
+
+- **3c.**  (0.3 point) Ue the `merge()` function to recreate the merge in the previous part. This should require only one line of code; call the result `sprint.df.2`. In the call to `merge()`, make sure to set the argument `suffixes=c(".m",".w")`, which will help appropriately distinguish the column names after merging (a convenience of using the `merge()` function). The merged data frame `sprint.df2` should be of dimension 377 x 13; display its first five lines. Do these match those of `sprint.df` from the last part? They shouldn't match, and this is because the `merge()` function sorts according to the `by` column, by default. Take a look at the help file for `merge()` to see what arugment you should set in order to turn off this behavior; then check again the first five lines of the output `sprint.df2`, and compare to those from `sprint.df`.
+
+```{r}
+sprint.df2 <- merge(sprint.f.df.li, sprint.m.df.li, 
+                    by = "City.Date", suffixes = c(".w", ".m"), 
+                    sort = FALSE)
+```
+
+
+- **3d.**  (0.3 point) Plot the `Time.w` versus `Time.m` columns in `sprint.df2`, with appropriately labeled axes and an appropriate title. Looking at the the women's versus men's times from the common track meets---is there a positive correlation here, i.e., is there a "track meet effect"? This might suggest that there is something about the track meet itself (e.g., the weather, the atmosphere, the crowd, the specific way the track has been constructed/set up, etc.) that helps sprinters run faster. Then, use the `cor.test()` function to determine if there is a significant correlation between `Time.w` and `Time.m`---specifically, report the `p.value` from its output. In the call to `cor.test()`, use all default arguments.
+
+```{r}
+sprint.df2 %>%
+  ggplot() +
+  geom_point(aes(x = Time.w, y = Time.m))
+
+cor.test(~ Time.w + Time.m, data = sprint.df2)
+```
+
+The p-value is tiny at $p = 5.441 \times 10^{-9}$, indicating a significant correlation. This could be a meet effect, or possible a year effect? 
+
+Bug hunt practice
+===
+
+In this section of the lab, you will fix a bunch of buggy function definitions. Probably the easiest workflow is to define the function in your console, and then run the sample commands---they will either give errors or produce the wrong outputs. Using any combination of: reading the error messages, `traceback()`, and `cat()` or `print()`, you must find and fix the bugs. Sometimes it can also help to try multiple different inputs, i.e., try new function calls, rather than just looking at the sample calls given to you, in order to determine the bugs. You shouldn't show any of your debugging work in your final knitted answers---so, don't show calls to `traceback()`, and don't leave any `cat()` or `print()` calls in the final, fixed function. (You don't have to do anything yet, this was just to setup this section of the lab.)
+
+- **4a.**  (0.3 point) Below is a function called `get.cols.with.ab.zeros()`, but it has a few bugs. A few sample matrices are given below in `mat`, `identity.mat`, along with some sample calls that give errors. After fixing the bugs, the calls to `get.cols.with.ab.zeros()` should produce the outputs as described in comments.
+
+```{r, error=TRUE}
+# Function: cols.with.ab.zeros, to retrieve columns of matrix that have between
+#   a and b zeros, each
+# Inputs:
+# - my.mat: the original matrix 
+# - a: lower bound for number of zeros allowed; default is 0
+# - b: upper bound for number of zeros allowed; default is Inf
+# Output: the new matrix
+
+cols.with.ab.zeros = function(my.mat, a=0, b=Inf) {
+  zeros.per.column = colSums(mat == 0)
+  i.to.keep = (a <= zeros.per.column & zeros.per.column <= b)
+  return(my.mat[, i.to.keep, drop = FALSE])
+}
+
+mat = matrix(c(0,0,1,0,1,1,1,1,1), 3, 3)
+identity.mat = diag(1, 3)
+cols.with.ab.zeros(mat) # Should get back original matrix
+cols.with.ab.zeros(mat, a=1, b=2) # Should get back first 2 columns of mat
+cols.with.ab.zeros(mat, a=2, b=2) # Should get just 1st column of mat; note
+  # this should still be a matrix though, and not a numeric vector!
+cols.with.ab.zeros(identity.mat, a=2, b=2) # Should get back original matrix
+```
+
+- **4b.**  (0.3 point) Below is a function called `list.extractor()`, but it has a few bugs. A sample list is given below in `cool.list`, along with some sample calls that give errors. After fixing the bugs, the calls to `list.extractor()` should produce the outputs as described in comments.
+
+```{r, error=TRUE}
+# Function: list.extractor, to extract elements of a list
+# Inputs:
+# - my.list: the original list 
+# - i.to.keep: vector of indices, corresponding to elements of the list we
+#   want to keep. Default is NULL, in which case this argument is ignored
+# - i.to.remove: vector of indices, corresponding to elements of the list we
+#   want to remove Default is NULL, in which case this argument is ignored.
+#   NOTE: if both i.to.keep and i.to.remove are non-NULL, then the first 
+#   one should take precedence (i.e., we don't remove anything)
+# Output: the new list
+
+list.extractor = function(my.list, i.to.keep=NULL, i.to.remove=NULL) {
+  if (!is.null(i.to.keep)) {
+    L = my.list[i.to.keep]
+  } else {
+    if (!is.null(i.to.remove)) {
+      L = my.list[-i.to.remove]
+    }
+  }
+  return(L)
+}
+
+cool.list = list(ints=1:10, lets=letters[1:8], fracs=1:7/7,
+                 bools=sample(c(TRUE,FALSE), 5, replace=TRUE))
+list.extractor(cool.list, i.to.keep=c(1,3)) # Should get list with ints, fracs
+list.extractor(cool.list, i.to.remove=4) # Should get list without bools
+list.extractor(cool.list, i.to.keep=2:4, i.to.remove=4) # Should get list with
+  # lets, fracs, and bools (the i.to.remove argument should be ignored)
+```
+
+- **4c.**  (0.3 point) Below is a function called `random.walk()`, but it has a few bugs. Some sample calls are given below that produce errors. After fixing the bugs, the calls to `random.walk()` should produce the outputs as described in comment. 
+
+```{r, error=TRUE}
+# Function: random.walk, to run a simple random walk over the reals, which
+#   terminates when it reaches 0
+# Inputs:
+# - x.start: starting position. Default is 5
+# - plot.walk: should the result be plotted? Default is TRUE
+# - seed: integer seed to pass to set.seed(). Default is NULL, which means
+#   effectively no seed is set
+# Output: a list with elements x.vals, the values visited by the random walk,
+#   and num.steps, the number of steps taken before termination
+
+random.walk <- function(x.start=5, plot.walk=TRUE, seed=NULL) {
+  if (!is.null(seed)) set.seed(seed) # Set the seed, if we need to
+  x.vals = x.start
+  
+  while (TRUE) {
+    r = runif(1, -2, 1)
+    if ((tail(x.vals, 1) + r) <= 0) break
+    else x.vals = c(x.vals, tail(x.vals, 1) + r)
+  }
+  
+  if (plot.walk) plot(x.vals, xlab="Iteration", ylab="Random walk values", type="o")
+  
+  return(list(x.vals=x.vals, num.steps=length(x.vals)))
+}
+
+random.walk(x.start=5, seed=3) # Should print 8 (this is how many
+  # steps it took the random walk), and produce a plot
+random.walk(x.start=10, seed=7)$num.steps # Should print 14 (this is how many
+  # steps it took the random walk), and produce a plot
+random.walk(x.start=10, plot.walk=FALSE, seed=7)$num.steps # Should print 14 
+  # (this is how many steps it took the random walk), and not produce a plot
+```
+
+Browsing practice
+===
+
+- **5a.**  (0.3 point) Below is a function `add.up.inv.powers()` that computes  $1^1+2^{1/2}+\ldots+(n-1)^{1/(n-1)}+n^{1/n}$, via a `for()` loop, for some value of $n$, specified in the first argument. The second argument is `verbose`; if this is TRUE (the default is FALSE), then the function prints out the current summand to the console, as a roman numeral. A short demo is given below. You'll use `add.up.inv.powers()` and `roman.cat()` to do a bit of exploration with `browser()` in the next several questions. But before this, for good vectorization practice, show that you can compute the same expression as done in `add.up.inv.powers()`, but without any explicit looping, i.e., just using vectorization and `sum()`. Check that you get the same answers for the demo inputs. Hint: for this, you can use `all.equal()`, to check for "very near" equality, since you may not get exact equality in all digits.
+
+```{r}
+add.up.inv.powers = function(n, verbose=FALSE) {
+  x = 0
+  for (i in 1:n) {
+    x = x + i^(1/i)
+    if (verbose) roman.cat(i)
+  }
+  if (verbose) cat("\n")
+  return(x)
+}
+
+roman.cat = function(num) {
+  roman.num = as.roman(num)
+  roman.str = as.character(roman.num)
+  cat(roman.str, "... ")
+}
+
+add.up.inv.powers(n=3, verb=FALSE)
+add.up.inv.powers(n=5, verb=FALSE)
+add.up.inv.powers(n=10, verb=FALSE)
+
+invpow_vec <- function(n) sum((1:n)^(1/(1:n)))
+invpow_vec(10)
+
+```
+
+- **5b.**  (0.3 point) Copy and paste the definition of `add.up.inv.powers()` below, into an R code chunk that will *not* be evaluated when you knit (hence the `eval=FALSE`). You'll use this as a working ground for the code that you'll run in your console. Place a call to `browser()` inside `add.up.inv.powers()`, in between the line `x = 0` and the `for()` loop. Then update this function definition in your console (i.e., just run the code block that defines `add.up.inv.powers()`), and call the function in the console with `n=5` and the default value of `verbose`. 
+```{r, eval = FALSE}
+add.up.inv.powers = function(n, verbose=FALSE) {
+  x = 0
+  browser()
+  for (i in 1:n) {
+    x = x + i^(1/i)
+    if (verbose) roman.cat(i)
+  }
+  if (verbose) cat("\n")
+  return(x)
+}
+
+add.up.inv.powers(5)
+```
+
+    Now you'll enter the R Studio browser mode. First, just look around: you should see the "Console" panel (as always), the "Source Viewer" panel, the "Environment" panel, and the "Traceback" panel. (The console is arguably the most important but the others add nice graphical displays.) Hit the return key repeatedly (while your cursor is in the console) to step through the function line by line, until you get to the last line of the function. Once this last line is run, you'll immediately exit the browser mode. Try the whole process again a few times, each time looking at the various R Studio panels and familiarizing yourself with what they are displaying. Instead of hitting the return key, note that you can type "n" in the console to step to the next line. Note also that you can type in variable names in the console and hit enter, to see their current values (alternatively, the "Environment" panel will show you this too).
+
+- **5c.**  (0.3 point) Answer the following questions, exploring what you can do in browser mode.
+      - How do you display the value of the variable `n` defined in the `add.up.inv.powers()` function? (Recall that typing "n" just gives you the next line.) 
+      
+I used `eval(n)`.      
+      
+      - How do you exit the browser mode prematurely, before the last line is reached?  
+      
+I used "c".
+
+      - Suppose you were to run the browser with a call like `cool.new.num = add.up.inv.powers(n=5)` in the console; if you ran the browser to completion, would the variable `cool.new.num` be defined in your console? 
+      
+```{r}
+cool.new.num = add.up.inv.powers(2)
+cool.new.num
+```
+
+Yep it does. 
+
+      - What happens if you were to save the output again in a different variable name, but you didn't run the browser to completion, i.e., you exited prematurely?
+      
+```{r}
+cool.new.num = add.up.inv.powers(2)
+```
+
+Depends. If you use "c", it will exit browser and run the program, saving the output. If you use "Q", it exits the browser and quits the program, so no output. 
+
+      - Can you define new variables while in browser mode? 
+
+Only in the context of the browser. 
+
+      - Can you redefine existing variables in the browser? What happens, for example, if you were to redefine `x` the moment you entered the browser mode?     
+      
+The program runs with the new values. 
+
+      - What happens if you change the location of the call to `browser()` within the definition of the function `add.up.inv.powers()`?   
+
+```{r}
+add.up.inv.powers = function(n, verbose=FALSE) {
+  browser()
+  x = 0
+  for (i in 1:n) {
+    x = x + i^(1/i)
+    if (verbose) roman.cat(i)
+  }
+  if (verbose) cat("\n")
+  return(x)
+}
+
+add.up.inv.powers(2, TRUE)
+
+```
+
+It just starts the browser from where you put it.
+
+- **5d.**  (0.3 point) Typing the "f" key in browser mode, as soon as you enter a `for()` loop, will skip to the end of the loop. Try this a few times. What happens if you type "f" after say a few iterations of the loop? What happens if you type "f" right before the loop?
+
+When the cursor is in the loop, it steps through automatically and picks up after the loop. When not in the loop, it finished the program. 
+
+- **5e.**  (0.3 point) Typing the "c" key in browser mode will exit browser mode and continue on with normal evaluation. Try this too.
+
+See above. 
+
+- **5f.**  (0.3 point) Lastly, typing the "s" key in browser mode will put you into an even more in-depth mode, call it "follow-the-rabit-hole" mode, where you step into each function being evaluated, and enter browser mode for that function. Try this, and describe what you find. Do you step into `roman.cat()`? Do you step into functions that are built-in? How far down the rabbit hole do you go?
+
+Oh dear ... you can really go down the rabbit hole, indeed. Curiouser and curiouser! I found myself somewhere in `.as.roman` before giving up. 
+
+Browsing for bugs
+===
+
+- **6a.**  (0.3 point) Now that you've had good practice with it, use `browser()` to find and fix bugs in the function `fibonacci()` below. This function is supposed to generate the $n$th number in the Fibonacci sequence 1, 1, 2, 3, 5, 8, 13, 21, 34, ..., which begins with 1, 1, and where every number after this is the sum of the previous two. Describe what bugs you found, how you found them, and what you did to fix them. Once this is done, your function should be producing outputs on the test cases below that match those described in the comments.
+
+```{r, error=TRUE}
+fibonacci = function(n) {
+  #browser()
+  my.fib = c(1,1)
+  if(n < 3) return(my.fib[n])
+  for (i in 2:(n-1)) {
+    my.fib[i+1] = my.fib[i] + my.fib[i-1]  
+  }
+  return(my.fib[n])
+}
+
+fibonacci(1) # Should be 1
+fibonacci(2) # Should be 1
+fibonacci(3) # Should be 2
+fibonacci(5) # Should be 5
+fibonacci(9) # Should be 34
+```
+
+I found the index `i` in the loop produced non-sensical values when `n` less than 3, and that the return function picked the wrong index `i`. The first was found by inspection of the error, the second by using `browser`, which showed the correct vector being produced, but the wrong output. I put a switch to avoid the loop entirely if `n < 3`, and also to return the
+$n^{th}$ value, not the $i^{th}$ value. 
+
+- **6b.**  (0.3 point) Use `browser()` to find and fix bugs in the functions `sentence.flipper()` and `word.flipper()` below. The first function is supposed to take a sentence, i.e., a single string composed of words separated by spaces, and flip each of the words (meaning reverse the order of their characters); the second function is used by the first, to take a single word and flip it (reverse the order of the characters). Describe what bugs you found, how you found them, and what you did to fix them. Once this is done, your function should be producing outputs on the test cases below that match those described in the comments.
+
+```{r, error=TRUE}
+sentence.flipper = function(str) {
+  #browser()
+  str.words = strsplit(str, split=" ")[[1]] 
+  rev.words = sapply(str.words, word.flipper)
+  str.flipped = paste(rev.words, collapse=" ")
+  return(str.flipped)
+}
+
+word.flipper = function(str) {
+  #browser()
+  chars = strsplit(str, split="")[[1]]
+  chars.flipped = rev(chars)
+  str.flipped = paste(chars.flipped, collapse="")
+  return(str.flipped)
+}
+
+word.flipper("abc")
+sentence.flipper("abc def")
+
+# Should be "eht kciuq nworb xof depmuj revo eht yzal god"
+sentence.flipper("the quick brown fox jumped over the lazy dog") 
+# Should be "ot eb ro on ot eb taht si eht noitseuq"
+sentence.flipper("to be or no to be that is the question") 
+```
+
+Running browser on `word.flipper` first, I found the `rev` function to fail, so I extracted the contents of the output of strsplit, which produces a list, by default. 
+
+Sentence flipper required more work. Again using browser, I discovered the need to extract the vector to create `str.words`, then to create `rev.words`, we need to work on `str.words`, not `str`, use `sapply` to get a vector, not a list, then reverse the resulting vector. 
+
+- **6c.**  (0.3 point) Extend the function `sentence.flipper()` so that it is vectorized, i.e., if the input `str` is a vector of strings, then this function should return a vector where each element is a string that is flipped in accordance with the description above. Hint: there is certainly more than one way to modify `sentence.flipper()` so that it works over vectors. But look out for a simple strategy---you already know that `sentence.flipper()` works over single strings, so now just do something to apply this strategy over each element of a vector. Once this is done, your function should be producing outputs on the test cases below that match those described in the comments. 
+
+```{r, error=TRUE}
+# Redefine sentence.flipper() here
+sentence.flipper = function(str) {
+  
+  vec.of.flipped <- sapply(str, function(str) {
+    
+  str.words = strsplit(str, split=" ")[[1]] 
+  rev.words = sapply(str.words, word.flipper) 
+  str.flipped = paste(rev.words, collapse=" ")
+  return(str.flipped)
+  
+  }, USE.NAMES = FALSE)
+  
+  return(vec.of.flipped)
+}
+
+# Should be "olleh ssenkrad ym dlo dneirf", 
+#           "ev'i emoc ot kaeps htiw uoy niaga"
+sentence.flipper(c("hello darkness my old friend",
+                   "i've come to speak with you again"))
+# Should be "reven annog evig uoy pu",
+#           "reven annog tel uoy nwod",
+#           "reven annog nur dnuora dna tresed uoy"
+sentence.flipper(c("never gonna give you up",
+                   "never gonna let you down",
+                   "never gonna run around and desert you"))
+```
+
+
+
+- **6d.**  (0.3 point) Define a function `sentence.scrambler()` that operates similarly to to `sentence.flipper()`, but which randomly scrambles the order of characters in each word, instead of deterministically reversing them. The function `sentence.scrambler()` should be vectorized, just like the current version of `sentence.flipper()`. Hint: you can use `browser()` at any point if you run into bugs in your development, or simply to see how your function is handling certain test inputs. Also, the implementation of `sentence.scrambler()` should be pretty similar to `sentence.flipper()`; really, you just need to replace `word.flipper()` by a suitable function. Once done, run `sentence.scrambler()` on the test string below to display the output. 
+
+```{r, error=TRUE}
+# Define sentence.scrambler() here
+sentence.scrambler = function(str) {
+  
+  word.scrambler = function(str) {
+  #browser()
+  chars = strsplit(str, split="")[[1]]
+  chars.flipped = sample(chars)
+  str.flipped = paste(chars.flipped, collapse="")
+  return(str.flipped)
+}
+  
+  vec.of.flipped <- sapply(str, function(str) {
+    
+  str.words = strsplit(str, split=" ")[[1]] 
+  rev.words = sapply(str.words, word.scrambler )
+  str.flipped = paste(rev.words, collapse=" ")
+  return(str.flipped)
+  
+  }, USE.NAMES = FALSE)
+  
+  return(vec.of.flipped)
+}
+
+
+sentence.scrambler(c("I have no theorems, well",
+  "I do have theorems, but none of them are named Fienberg's Theorem",
+  "Even if there were a Fienberg's Theorem, it probably wouldn't be important",
+  "What's important is the attitude, for what statistics is",
+  "and how it's recognized by other people outside of our field"))
+```
+
+Testing practice
+===
+
+- **7a.**  (0.3 point) Download and install the `assertthat` package, if you haven't already. Using the `assert_that()`, add assertions to the start of your (final, bug-fixed) `random.walk()` function from from Q1c to ensure that the inputs being passed in are of the correct type. Demonstrate by example that these work and pass informative error messages by calling `random.walk()` with faulty inputs (and set `error=TRUE` as an option for your code chunk, so that your lab will knit).
+
+```{r, error = TRUE}
+library(assertthat)
+random.walk <- function(x.start=5, plot.walk=TRUE, seed=NULL) {
+  
+  assert_that(is.numeric(x.start))
+  assert_that(is.logical(plot.walk))
+  assert_that(is.null(seed) | is.numeric(seed))
+  
+  if (!is.null(seed)) set.seed(seed) # Set the seed, if we need to
+  x.vals = x.start
+  
+  while (TRUE) {
+    r = runif(1, -2, 1)
+    if ((tail(x.vals, 1) + r) <= 0) break
+    else x.vals = c(x.vals, tail(x.vals, 1) + r)
+  }
+  
+  if (plot.walk) plot(x.vals, xlab="Iteration", ylab="Random walk values", type="o")
+  
+  return(list(x.vals=x.vals, num.steps=length(x.vals)))
+}
+
+random.walk(x.start="5")
+random.walk(x.start=5, plot.walk = "TRUE")
+random.walk(5, seed="105")
+```
+
+- **7b.**  (0.3 point) Similarly, add assertions to `sentence.flipper()` from Q3c to ensure proper inputs, and then demonstrate via examples that these work as expected.
+
+```{r, error=TRUE}
+sentence.flipper = function(str) {
+  assert_that(is.character(str))
+  
+  vec.of.flipped <- sapply(str, function(str) {
+    
+  str.words = strsplit(str, split=" ")[[1]] 
+  rev.words = sapply(str.words, word.flipper) 
+  str.flipped = paste(rev.words, collapse=" ")
+  return(str.flipped)
+  
+  }, USE.NAMES = FALSE)
+  
+  return(vec.of.flipped)
+}
+
+sentence.flipper(5:10)
+sentence.flipper(c("5,6,7,8,9,10"))
+```
+
+
+- **7c.**  (0.4 point) Now for a bit of unit testing. Download and install the `testthat` package if you haven't already. We'll use the `test_that()` function. It works as follows. Each call we make to `test_that()` has two arguments: the first is message that describes what we are testing, and the second is a block of code that evaluates to TRUE or FALSE. Typically the block of code will use `expect_true()` or `expect_error()`, in the last line. The structure is thus:
+    ```
+    test_that("Message specifying what we're testing", {
+      code goes here
+      code goes here
+      expect_true(code goes here)
+    })
+    ```
+    If the output of your code is TRUE (the test passes), then the call to `test_that()` will show nothing; if the output of your code is FALSE (the test fails), then we'll get an error message signifying this. Here is an example for checking that the function from Q2a works for `n=3`:
+    ```{r}
+    library(testthat)
+    test_that("add.up.inv.powers() works for n=3", {
+      res = add.up.inv.powers(n=3, verb=FALSE)
+      expect_true(res==(1 + 2^(1/2) + 3^(1/3)))
+    })
+    ```
+    And another example for checking that the function from Q2a fails for non-integer inputs:
+    ```{r}
+    test_that("add.up.inv.powers() fails for non-integer n", {
+      expect_error(add.up.inv.powers(n="c", verb=FALSE))
+    })
+    ```
+    Neither of these calls to `test_that()` produced any messages, which means that tests executed as we expected.
+    
+    Now implement your own unit tests for `sentence.flipper()` from Q3c. Write several tests, checking that it flips simple sentences as you'd expect, that it returns a vector of strings when it's passed a vector of strings, and that its output vector has the same length as the input vector.
+    
+```{r}
+library(testthat)
+
+test_that("does this flip words in a sentence?", {
+  out <- sentence.flipper("abc def")
+  expect_true(out == "cba fed")
+})
+
+test_that("returns a vector of strings", {
+  instr <- c("abc def", "ghi lnk")
+  out <- sentence.flipper(instr)
+  expect_true(is.character(out))
+})
+
+test_that("returns a vector of strings", {
+  instr <- c("abc def", "ghi lnk")
+  out <- sentence.flipper(instr)
+  expect_true(length(instr) == length(out))
+})
+
+```
+    
+

@@ -1,0 +1,569 @@
+---
+title: 'Lab 4: Simulation'
+author: "Statistical Computing"
+output: pdf_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, autodep=TRUE, cache.comments=TRUE)
+```
+
+Name:  
+Collaborated with:  
+
+The total credit of this lab is 10 points. You can collaborate with your classmates, but you must identify their names above, and you must submit **your own** lab as an knitted pdf file. To answer the questions, display the results and write your comments if asked.
+
+```{r}
+set.seed(1986)
+library(dplyr)
+library(purrr)
+library(tidyr)
+```
+
+
+Basic random number generation
+===
+
+- **1a.** (0.3 point) Generate the following objects, save them to variables (with names of your choosing), and call `head()` on those variables.
+
+    + A vector with 1000 standard normal random variables.
+    + A vector with 20 draws from $\mathrm{Beta}(0.1, 0.1)$.
+    + A vector of 2000 characters sampled uniformly from "A", "G", "C", and "T".
+    + A data frame with a column `x` that contains 100 draws from $\mathrm{Unif}(0, 1)$, and a column `y` that contains 100 draws of the form $y_i \sim \mathrm{Unif}(0, x_i)$. Do this without using explicit iteration.
+    
+$y_i \sim \mathrm{Unif}(0, x_i)$
+    
+```{r}
+std_norm1000 <- rnorm(1000)
+beta.1.1 <- rbeta(20, .1, .1)
+dna_sample <- sample(c("A", "C", "T", "G"), 2000, replace = TRUE)
+df_rand <- tibble(x = runif(100)) %>%
+  rowwise() %>%
+  mutate(y = runif(1, 0, x))
+
+head(std_norm1000)
+head(beta.1.1)
+head(dna_sample)
+head(df_rand)
+```
+
+- **1b.**(0.3 point)  We've written a function `plot.cum.means()` below which plots cumulative sample mean as the sample size increases. The first argument `rfun` stands for a function which takes one argument `n` and generates this many random numbers when called as `rfun(n)`. The second argument `n.max` is an integer which tells the number samples to draw. As a side effect, the function plots the cumulative mean against the number of samples.
+
+```{r}
+    # plot.cum.means: plot cumulative sample mean as a function of sample size
+    # Inputs:
+    # - rfun: function which generates random draws
+    # - n.max: number of samples to draw
+    # Ouptut: none
+    plot.cum.means = function(rfun, n.max, ...) {
+      samples = rfun(n.max, ...)
+      plot(1:n.max, cumsum(samples) / 1:n.max, type = "l")
+    }
+```
+    
+    Use this function to make plots for the following distributions, with `n.max=1000`. Then answer: do the sample means start concentrating around the appropriate value as the sample size increases?
+
+    + $N(-3, 10)$
+    + $\mathrm{Exp}(\mathrm{mean}=5)$ 
+    + $\mathrm{Beta}(1, 1)$
+
+    Hint: for each, you should construct a new single-argument random number generator to pass as the `rfun` argument to `plot.cum.means()`, as in `function(n) rnorm(n, mean=-3, sd=sqrt(10))` for the first case. 
+   
+```{r}
+plot.cum.means(rfun = rnorm, n.max = 1000, mean = -3, sd = 10)
+plot.cum.means(rfun = rexp, n.max = 1000, rate = 1/5)
+plot.cum.means(rfun = rbeta, n.max = 1000, shape1 = 1, shape2 = 1)
+```
+
+Please see my addition of the `...` argument to the function `plot.cum.means`, obviating the need for helper functions. Indeed, in each case, a the number of samples increases, average of the sample tends toward the expected value of the theoretical distribution.  
+    
+- **1c.** (0.3 point) Find a distribution whose sample mean should not converge (in theory) as the sample size grows. Call `plot.cum.means()` with the appropriate random number generator and `n.max=1000`.
+
+```{r}
+my_rnorm <- function(n) rnorm(n, mean = 1:n, sd = 100)
+plot.cum.means(rfun = my_rnorm, n.max = 1000)
+```
+
+I simply made the mean dependent on the sample size. Is that fair?
+
+- **1d.** (0.3 point) For the same distributions as Q1b we will do the following.
+
+    + Generate 10, 100, and 1000 random samples from the distribution.
+    + On a single plot, display the ECDFs (empirical cumulative distribution functions) from each set of samples, and the true CDF, with each curve being displayed in a different color.
+
+    In order to do this, we'll write a function `plot.ecdf(rfun, pfun, sizes)` which takes as its arguments the single-argument random number generating function `rfun`, the corresponding single-argument conditional density function `pfun`, and a vector of sample sizes `sizes` for which to plot the ecdf.
+
+    We've already started to define `plot.ecdf()` below, but we've left it incomplete. Fill in the definition by editing the lines with "##" and "??", and then run it on the same distributions as in Q1b. Examine the plots and discuss how the ECDFs converge as the sample size increases. Note: make sure to remove `eval=FALSE`, after you've edited the function, to see the results.
+
+```{r, eval=TRUE}
+# plot.ecdf: plots ECDFs along with the true CDF, for varying sample sizes
+# Inputs:
+# - rfun: function which generates n random draws, when called as rfun(n)
+# - pfun: function which calculates the true CDF at x, when called as pfun(x)
+# - sizes: a vector of sample sizes
+# Output: none
+  
+plot.ecdf = function(rfun, pfun, sizes, ...) {
+  # Draw the random numbers
+   samples = map(sizes, rfun, ...)
+
+  # Calculate the grid for the CDF
+  grid.min = min(sapply(samples, min))
+  grid.max = max(sapply(samples, max))
+  grid = seq(grid.min, grid.max, length=1000)
+
+  # Calculate the ECDFs
+  ecdfs = map(samples, ecdf)
+  evals = map(ecdfs, function(f) f(grid))
+
+  # Plot the true CDF
+  plot(grid, pfun(grid, ...), 
+       type="l", col="black", xlab="x", ylab = "P(X <= x)")
+
+  # Plot the ECDFs on top
+  n.sizes = length(sizes)
+  cols = rainbow(n.sizes)
+  walk2(evals, cols, ~ lines(grid, .x, col = .y, lty = 3))
+  #for (i in 1:n.sizes) {
+  #  lines(grid, evals[[i]], col=cols[i])
+  #}
+  legend("bottomright", legend=sizes, col=cols, lwd=1)
+}
+```
+
+```{r}
+plot.ecdf(rfun = rnorm, pfun = pnorm, sizes = c(10, 100, 1000), 
+          mean = -3, sd = 10)
+plot.ecdf(rfun = rexp, pfun = pexp, sizes = c(10, 100, 1000), 
+          rate = 1/5)
+plot.ecdf(rfun = rbeta, pfun = pbeta, sizes = c(10, 100, 1000), 
+          shape1 = 1, shape2 = 1)
+```
+
+Drug effect simulation
+===
+
+We're going to continue studying the drug effect model that was discussed in the "Simulation" lecture. Recall, we suppose that there is a new drug that can be optionally given before chemotherapy. We believe those who aren’t given the drug experience a reduction in tumor size of percentage:
+$$
+X_{\mathrm{no\,drug}} \sim 100 \cdot \mathrm{Exp}(\mathrm{mean}=R), 
+\;\;\; R \sim \mathrm{Unif}(0,1),
+$$
+whereas those who were given the drug experience a reduction in tumor size of percentage:
+$$
+X_{\mathrm{drug}} \sim 100 \cdot \mathrm{Exp}(\mathrm{mean}=2).
+$$
+
+- **2a.** (0.5 point) Look the code chunk in the lecture that generated data according to the above model. Write a function around this code, called `simulate.data()`, that takes two arguments: `n`, the sample size (number of subjects in each group), with a default value of 60; and `mu.drug`, the mean for the exponential distribution that defines the drug tumor reduction measurements, with a default value of 2. Your function should return a list with two vectors called `no.drug` and `drug`. Each of these two vectors should have length `n`, containing the percentage reduction in
+tumor size under the appropriate condition (not taking the drug or taking the drug). 
+
+```{r}
+simulate.data <- function(n = 60, mu.drug = 2) {
+  no.drug = 100 * rexp(n, rate = 1 / runif(n))
+  drug = 100 * rexp(n, rate = 1 / mu.drug)
+  list(drug = drug, 
+       no.drug = no.drug)
+}
+```
+
+- **2b.** (0.5 point) Run your function `simulate.data()` without any arguments (hence, relying on the default
+values of `n` and `mu.drug`), and store the output in `results1`. Print out the first 6 values in both the `results1$no.drug` and `results1$drug` vectors. Now, run `simulate.data()` again, and store its output in `results2`. Again, print out the first 6 values in both the `results2$no.drug` and `results2$drug` vectors. We have effectively simulated two hypothetical datasets. Note that we shouldn't expect the values from `results1` and `results2` to be the same.
+
+```{r}
+results1 <- simulate.data()
+head(results1$drug)
+head(results1$no.drug)
+
+results2 <- simulate.data()
+head(results2$drug)
+head(results2$no.drug)
+
+```
+
+- **2c.** (0.5 point) Compute the following three numbers: the absolute difference in the mean values of `no.drug` between `results1` and `results2`, the absolute difference in the mean values of `drug` between `results1` and `results2`, and the absolute difference in mean values of `no.drug` and `drug` in `results1``. Of these three numbers, which one is the largest, and does this make sense?
+
+```{r}
+abs(mean(results1$no.drug) - mean(results2$no.drug))
+abs(mean(results1$drug) - mean(results2$drug))
+abs(mean(results1$no.drug) - mean(results1$drug))
+```
+
+The difference between `no.drug` and `drug` is bigger than the differences between the first and second simulations for either treatment. This makes sense: as the number of samples increases, the difference between simulations should shrink toward zero, and 60 is not a small number of samples. On the other hand, the expected values for distributions for the treatments differ, with  `no.drug` being 2 (with fixed mean of 2) and `drug` being 0.5 (with the expected value of the mean being 0.5), so a consistent difference in the mean is expected regardless of the sample size, and it should tend toward 1.5 as sample size increases. 
+
+- **2d.** (0.5 point) Now, we want to visualize the simulated data. Fortunately, the code to visualize the data is already provided for you in the "Simulation" lecture. Write a function around this code, called `plot.data()`, that takes just one argument `data`, which is a list with components `drug` and `no.drug`. To be clear, this function should create a single plot, with two overlaid histograms, one for`data$no.drug` (in gray) and one for `data$drug` (in red), with the same 20 bins. It should also overlay a density curve for each histogram in the appropriate colors, and produce a legend. One written, call `plot.data()` on each of `results1`, and on `results2`. 
+
+```{r}
+plot.data <- function(data) {
+  require(dplyr)
+  require(ggplot2)
+  
+  bins = 20
+  
+  data %>%
+   #results1 %>%
+    as_tibble(data) %>%
+    pivot_longer(cols = drug:no.drug, 
+                 names_to = "treatment", 
+                 values_to = "tumor_mass") %>%
+    arrange(treatment) %>%
+    ggplot() +
+    
+    
+    geom_histogram(aes(x = tumor_mass, y = ..density..,
+                       group = treatment), 
+                   bins = 20, position = "identity",
+                   fill = rep(c("red", "grey"), each = bins)) +
+    geom_density(aes(x = tumor_mass, color = treatment)) + 
+    scale_color_manual(values = c("darkred", "darkgrey"))
+}
+
+
+plot.data(results1)
+plot.data(results2)
+```
+
+- **2e.** (0.5 point) In just one line of code total, generate a new simulated data set using `simulate.data()` where `n=1000` and `mu.drug=1.1`, and plot the results using `plot.data()`. In one or two sentences, explain the differences that you see between this plot and the two you produced in the last problem. 
+
+```{r}
+plot.data(simulate.data(n = 1000, mu.drug = 1.1))
+```
+
+- **2f.** (0.5 point) In the next problem, we will be generating many hypothetical data sets to see how many subjects we need to observe a difference between taking the drug and not taking the drug. To prepare for this, write a function called `simulate.difference()`, which takes in the same two arguments as `simulate.data()`, namely `n` and `mu.drug`, with the same default parameters as before. Your function should generate a new data set using `simulate.data()` using the appropriate inputs, and then just return the difference in means of `drug` and `no.drug` (no absolute value). Run this function twice with no arguments (hence, using the default parameters) to see that your function is returning different numbers, and run the function once
+with `n=1000` and `mu.drug=10`. Print out all three return values. This last value should be substantially larger than the first two.
+
+```{r}
+simulate.difference <- function(n = 60, mu.drug = 2) {
+  data <- simulate.data(n, mu.drug)
+  mean(data$drug) - mean(data$no.drug)
+}
+
+simulate.difference()
+simulate.difference()
+simulate.difference(n = 1000, mu.drug = 10)
+```
+
+
+Running simulations, saving money
+===
+
+For the next few questions, we will work with this hypothetical: suppose we work for a drug company that wants to put this new drug out on the market. In order to get FDA approval, your company must demonstrate that the patients who had the drug had **on average** a reduction in tumor size **at least 100 percent greater than** those who didn't receive the drug, or in math: 
+$$ 
+\overline{X}_{\mathrm{drug}} -
+\overline{X}_{\mathrm{no\,drug}} \geq 100. 
+$$ 
+Your drug company wants to spend as little money as possible. They want the smallest number $n$ such that, if they were to run a clinical trial with $n$ patients in each of the drug / no drug groups, they would likely succeed in demonstrating that the effect size (as above) is at least 100. Of course, the result of a clinical trial is random; your drug company is willing to take "likely" to mean **successful with probability 0.95**, i.e., successful in 190 of 200 hypothetical clinical trials (though only 1 will be run in reality).
+
+- **3a.** (0.5 point) Following the code sketch provided at the end of the "Simulation" lecture, write a function called `rep.sim()`. This function takes four arguments: `nreps` (the number of repetitions, with default value of 200), `n` and `mu.drug` (the values needed for `simulate.difference()`, with the same defaults as before), and `seed` (with default value `NULL`). Your function should run `simulate.differences()` `nreps` number of times, and then return the number of success, i.e., the number of times that the output of `simulate.difference()` exceeds 100. Demonstrate your function works by using it with `mu.drug=1.5`. Hint: to implement `rep.sim()`, you could use a `for()` loop, as shown in the slides, or if you're interested in trying an alternative route, you could use the `replicate()` function. Check the documentation to understand how the latter function.
+
+```{r}
+rep.sim <- function(nreps = 200, n = 60, mu.drug = 2, seed = NULL) {
+  
+  sum(replicate(nreps, 
+                simulate.difference(n = n, mu.drug = mu.drug)) > 100)
+  
+}
+
+rep.sim(mu.drug=1.5)
+```
+
+- **3b.** (0.5 point) Now we investigate the effect of the sample size `n`, fixing `mu.drug` to be 2. For each value of `n` in between 5 and 100 (inclusive), run your function `rep.sim()`. You can do this using a `for()` loop or an apply function. Store the number of success in a vector. Just to be clear: for each sample size in between 5 and 100, you should have a corresponding number of successes. Plot the number of successes versus the sample size, and label the axes appropriately. Based on your simulation, what is the smallest sample size for which the number of successes is 190 or more?
+
+```{r}
+wins <- map_dbl(5:100, ~ rep.sim(n = .x))
+
+dd <- tibble(n = 5:100, wins = wins) 
+dd %>%
+  ggplot() + 
+  geom_line(aes(x = n, y = wins)) + 
+  geom_hline(yintercept = 190, lty=2) + 
+  geom_vline(xintercept = dd %>%
+               filter(wins >= 190) %>%
+               summarize(n_min = min(n)) %>%
+               pull(n_min)) + 
+  xlab("sample size (n)") +
+  ylab("number of successes")
+
+```
+
+A sample size of 36 is the first simluation in which at least 190 successes are found. 
+
+- **3c.** (0.5 point) Now suppose your drug company told you they only had enough money to enlist 20 subjects in each of the drug / no drug groups, in their clinical trial. They then asked you the following question: how large would `mu.drug` have to be, the mean proportion of tumor reduction in the drug group, in order to have probability 0.95 of a successful drug trial? Run a simulation, much like your simulation in the last problem, to answer this question. Specifically, similar to before, for each value of the input `mu.drug` in between 0 and 5, in increments of 0.25, run your function `rep.sim()`, with `n=20` and `nreps=200`. Plot the number of successes versus the value of `mu.drug`, and label the axes appropriately. What is the smallest value of `mu.drug` for which the number of successes exceeds 190?
+
+```{r}
+
+wins <- map_dbl(seq(0, 5, by=.25), ~ rep.sim(n = 20, mu.drug = .x))
+
+dd <- tibble(mu.drug = seq(0, 5, by=.25), wins = wins) 
+dd %>%
+  ggplot() + 
+  geom_line(aes(x = mu.drug, y = wins)) + 
+  geom_hline(yintercept = 190, lty=2) + 
+  geom_vline(xintercept = dd %>%
+               filter(wins >= 190) %>%
+               summarize(n_min = min(mu.drug)) %>%
+               pull(n_min)) + 
+  xlab("average effect of drug") +
+  ylab("number of successes")
+
+```
+
+With a sample size of 20, we see a success rate of 95% when mu.drug = 2.5.
+
+- **3d.** (0.5 point) We're going to modify the simulation setup from the last question and see how it changes the results we observe. Here is the new setup: 
+
+    + We start with `n=5` subjects (as always, this means 5 subjects with the drug, 5 subjects without the drug).
+    + We compute the difference in means between using the drug and not using the drug.
+    + If this difference is larger than or equal to 100, we declare success and stop. 
+    + If the difference is smaller than 100, then we collect 5 new subjects with the drug and 5 new subjects without the drug. 
+    + Once again, we compute the difference in means between the subjects with the drug and the subjects without the drug, and we declare success if this difference is equal to or larger than 100. 
+    + We keep incrementing by 5 new subjects with the drug and without the drug until we have a total of 60 subjects with the drug and 60 subjects without the drug. 
+    + If we *still* do not observe a difference in means larger than 100 at this point, then we declare the a failure. 
+    
+    Change the functions `simulate.data()`, `simulate.difference()` and `rep.sim()`---whatever necessary---to accommodate this new scheme. Then run this simulation with 200 repetitions with `mu.drug=1.5`, and print out how many success there were. How does this number compare with the result you saw earlier in Q3a? Should it be much different?
+    
+```{r}
+
+simulate.difference <- function(nstart = 5, ninc = 5, nstop = 60, 
+                                mu.drug = 2, n) {
+  
+  data = simulate.data(n = nstart, mu.drug = mu.drug) %>% 
+    as_tibble
+  diff = mean(data$drug) - mean(data$no.drug)
+  
+  while (diff < 100) {
+    
+    if(nrow(data) > nstop) break
+    data <- data %>%
+      bind_rows(simulate.data(n = 5, mu.drug = 2))
+    diff <- mean(data$drug) - mean(data$no.drug)
+    
+  }
+
+  return(diff)
+  
+}
+
+rep.sim <- function(nreps = 200, mu.drug = 2, seed = NULL, ...) {
+  
+  sum(replicate(nreps, 
+                simulate.difference(mu.drug = mu.drug)) > 100)
+  
+}
+
+rep.sim(mu.drug = 1.5)
+```
+
+Much more common here! I think this is because we're mixing normal and geometric distributions. See more elaborated comment at end of AB testing section. 
+
+AB testing
+===
+
+A common task in modern data science is to analyze the results of an AB test. AB tests are essentially controlled experiments: we obtain data from two different conditions, such as the different versions of a website we want to show to users, to try to determine which condition gives better results.
+
+- **4a.** (0.8 point) Write a function to simulate collecting data from an AB test where the responses from the A condition follow a normal distribution with mean `a.mean` and standard deviation `a.sd`, whereas responses from the B condition follow a normal distribution with mean `b.mean` and standard deviation `b.sd`. 
+
+    Your function's signature should be `ab.collect(n, a.mean, a.sd, b.mean, b.sd, n)` where `n` is the number of samples to collect from each condition and the other arguments are as described above. Your function should return a list with two named components `a.responses` and `b.responses` which contain the responses for each condition respectively. Try your function out for several values of `a.mean`, `a.sd`, `b.mean`, and `b.sd` and check that the sample means and standard deviations approximately match the appropriate theoretical values.
+    
+```{r}
+ab.collect <- function(a.n, a.mean, a.sd, b.n, b.mean, b.sd) {
+  list(a.responses = rnorm(a.n, a.mean, a.sd), 
+       b.responses = rnorm(b.n, b.mean, b.sd))
+}
+
+test1 <- ab.collect(a.n = 100, a.mean = 5, a.sd = 1, 
+                   b.n = 100, b.mean = 10, b.sd = 2)
+map(test1, mean)
+map(test1, sd)
+
+test2 <- ab.collect(a.n = 100, a.mean = 2, a.sd = 10, 
+                   b.n = 100, b.mean = 1, b.sd = 50)
+map(test2, mean)
+map(test2, sd)
+```
+
+Looks like it's working!
+
+- **4b.** (0.8 point) Write a function `test.at.end(n, a.mean, a.sd, b.mean, b.sd)` which uses your function from Q4a to draw samples of size `n` and then runs a t-test to determine whether there is a significant difference. We'll define this as having a p-value at most 0.05. If there is a significant difference, we return either "A" or "B" for whichever condition has the higher mean. If there isn't no significant difference, we return "Inconclusive". Hint: recall `t.test()`, and examine its output on a trial run to figuure out how to extract the p-value. Run your function with `n=2000`, `a.mean=100`, `a.sd=20`, `b.mean=140`, `b.sd=10` and display the result.
+
+```{r}
+test.at.end <- function(n, ...) {
+data <- ab.collect(a.n = n, b.n = n, ...)
+fit <- t.test(data$a.responses, data$b.responses)
+if(fit$p.value >= 0.05) return("Inconclusive")
+else if(fit$statistic > 0) return("A")
+else return("B")
+  }
+
+test.at.end(n = 2000, a.mean = 100, b.mean = 140, a.sd = 20, b.sd = 10)
+
+```
+
+It works!
+
+- **4c.** (0.8 point) Waiting until you collect all of the samples can take a while. So you instead decide to take the following approach:
+
+    + Every day you collect 100 new observations from each condition. 
+    + At the end of the day you check whether or not the difference is significant.
+    + If the difference is significant you declare the higher response to be the winner. 
+    + If the difference is not significant you continue onto the next day. 
+    + As before, if you collect all of the samples without finding a significant different you'll declare the result "Inconclusive". 
+    
+    Note that this kind of sequential sampling is very common in AB testing. Note also the similarity to what we had you do in Q3d.
+    
+    Write a function `test.as.you.go(n.per.day, n.days, a.mean, a.sd,  b.mean, b.sd)` to implement this procedure. Your function should return a list with the winner (or "Inconclusive"), as well and the amount of data you needed to collect.
+
+    Run this function on the same example as before with `n.per.day=100` and `n.days=20` (to match final sample sizes). Do you get the same result? Do you save time collecting data?
+    
+```{r}
+test.as.you.go <- function(n.per.day, n.days, ...) {
+  
+  conc <- "Inconclusive"
+  data <- ab.collect(a.n = n.per.day, b.n = n.per.day, ...) %>%
+    as_tibble()
+  
+for(i in 1:n.days) {
+  data <- data %>% 
+    bind_rows(ab.collect(a.n = n.per.day, b.n = n.per.day, ...))
+  fit <- t.test(data$a.responses, data$b.responses)
+  if(fit$p.value >= 0.05) next
+  else if(fit$statistic > 0) {conc <- "A"; break}
+  else {conc <- "B"; break}
+}
+  
+  list(days = i, nrecords = nrow(data), winner = conc)
+  
+}
+
+test.as.you.go(n.per.day = 100, n.days = 20, a.mean = 100, b.mean = 140, a.sd = 20, b.sd = 10)
+```
+
+Yes, but I think it's because these parameters yield a very powerful test that succeeds with high probability even given only 100 samples. It makes me think I'm doing something wrong here. Let's change to a less powerful test and see. 
+
+```{r}
+test.at.end(n=2000, a.mean = 10, b.mean = 14, a.sd = 20, b.sd = 10)
+
+test.as.you.go(n.per.day = 100, n.days = 20, a.mean = 1, b.mean = 1.4, a.sd = 20, b.sd = 10)
+```
+
+Yes, we save money! We only had to collect 1700 samples per treatment, rather than 2000. 
+
+- **4d.** (0.8 point) In practice, most AB tests won't have a clear winner; instead both conditions A and B will be roughly equivalent. In this case we want to avoid *false positives*: saying there's a difference when there isn't really a difference (with respect to the true distributions). Let's run a simulation that checks the false positive rate of the two testing regimes.
+
+    Setting `a.mean = b.mean = 100`, `a.sd = b.sd = 20`, and retaining the number of samples as in the previous examples conduct 1000 AB experiments using each of previous two setups, in `test.at.end()` and `test.as.you.go()`.
+    
+    For each, calculate the number of "A" results, "B" results, and "Inconclusive" results. Is this what you would expect to see---recalling that we are declaring significance if the p-value from the t-test is at most 0.05? Does either method of sampling (all-at-once, or as-you-go) perform better than the other, with respect to controlling false positives? **Challenge:** can you explain the behavior you're seeing, with the sequential sampling?
+    
+```{r}
+atend <- map_chr(1:1000, ~ test.at.end(n=2000, a.mean = 100, b.mean = 100, a.sd = 20, b.sd = 20)) %>%
+  table()
+
+asgo <- map_chr(1:1000, 
+                ~ test.as.you.go(n.per.day=100, n.days=20,
+                                 a.mean = 100, b.mean = 100,
+                                 a.sd = 20, b.sd = 20)$winner) %>%
+  table()
+
+atend
+asgo
+```
+    
+We see a much higher false positive rate, near 10% for the test-as-you-go approach! I think this is because using a t.test with $\alpha = 0.05$ fails to control error due to an improperly defined probability model. With test as you go, I think we have a mixture of normal and geometric distributions. Perhaps in a hierarchical way? I'd be very happy to see the solution here, specifically, how to control error at $\alpha = 0.05$
+    
+    
+Pipes to base R
+===
+
+For each of the following code blocks, which are written with pipes, write equivalent code in base R (to do the same thing).
+
+- **5a.** (0.1 point)
+
+```{r}
+library(tidyverse)
+# Pipes:
+letters %>%
+  toupper %>%
+  paste(collapse="+") 
+
+# Base R:
+paste(toupper(letters), collapse="+")
+```
+
+- **5b.** (0.1 point)
+
+```{r}
+# Pipes:
+"     Ceci n'est pas une pipe     " %>% 
+  gsub("une", "un", .) %>%
+  trimws
+
+# Base R:
+
+trimws(gsub("une", "un", "Ceci n'est pas une pipe"))
+```
+
+- **5c.** (0.1 point)
+
+```{r}
+# Pipes:
+rnorm(1000) %>% 
+  hist(breaks=30, main="N(0,1) draws", col="pink", prob=TRUE) 
+
+# Base R:
+hist(rnorm(1000), breaks = 30, 
+     main = "N(0,1) draws", col = "pink", prob = TRUE)
+```
+
+- **5d.** (0.1 point)
+
+```{r}
+# Pipes:
+rnorm(1000) %>% 
+  hist(breaks=30, plot=FALSE) %>%
+  `[[`("density") %>%
+  max
+
+# Base R:
+max(hist(rnorm(1000), breaks=30)$density)
+```
+
+Base R to pipes
+===
+
+For each of the following code blocks, which are written in base R, write equivalent code with pipes (to do the same thing).
+
+- **6a.** (0.1 point) Hint: you can use the dot `.` again, in order to index `state.name` directly in the last pipe command.
+
+```{r}
+# Base R: 
+state.name[which.max(state.x77[,"Illiteracy"])] 
+
+# Pipes:
+state.x77 %>%
+  as_tibble(rownames="State") %>%
+  slice_max(Illiteracy) %>%
+  pull(State)
+```
+
+- **6b.** (0.1 point) Hint: if `x` is a list of length 1, then `x[[1]]` is the same as `unlist(x)`.
+
+```{r}
+str.url = "http://www.stat.cmu.edu/~ryantibs/statcomp/data/trump.txt"
+
+# Base R:
+lines = readLines(str.url)
+text = paste(lines, collapse=" ")
+words = strsplit(text, split="[[:space:]]|[[:punct:]]")[[1]]
+wordtab = table(words)
+wordtab = sort(wordtab, decreasing=TRUE)
+head(wordtab, 10)
+
+# Pipes:
+str.url %>%
+  readLines() %>%
+  paste(collapse=" ") %>%
+  base::strsplit(split="[[:space:]]|[[:punct:]]") %>%
+  unlist() %>%
+  table() %>%
+  sort(dec=TRUE) %>%
+  head(10)
+```
+    

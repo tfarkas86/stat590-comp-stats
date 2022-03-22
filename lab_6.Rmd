@@ -1,0 +1,63 @@
+---
+title: "Lab 6: EM algorithm and Monte Carlo integration"
+author: "Statistical Computing"
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, autodep=TRUE, cache.comments=TRUE)
+```
+
+Name:  
+Collaborated with:  
+
+
+EM algorithm
+===
+
+ When data is continuous, the population distribution often described by a mixture of Normal distributions
+$f(x) = \sum_{j=1}^p \pi_j \phi(x; \mu_j,\sigma_j^2)$ where $\phi(x; \mu_j,\sigma_j^2)$ denotes the density of Normal distribution. Estimation of the parameters $\pi_1,\dots, \pi_p$ and $\mu_1,\sigma_1^2, \dots,\mu_p,\sigma^2_p$ can be done using the EM algorithm. Let $\boldsymbol{\theta}$ denote the set of all the parameters and $\mathcal{D}$ denote the observed data is $\{x_1,x_2,\dots,x_n\}$. Treating an indicator telling which Normal distribution (cluster) that $x_i$ is draw from as missing data, we can make use of the EM algorithm. Denote $r_{ij}$ as an indicator for that observation $x_i$ comes from the $j$-th Normal distribution $N(\mu_j, \sigma_j^2)$. Let $\mathbf{r}$ denote the set of $r_{ij}$s. The complete data likelihood is 
+
+$$ L(\boldsymbol{\theta}|\mathbf{x},\mathbf{r}) = \prod_{i=1}^n\left\{\left[\prod_{j=1}^p \phi(x_i;\mu_j,\sigma_j^2 )^{r_{ij}}\right]\left[\prod_{j=1}^{p-1}\pi_j^{r_{ij}}(1-\pi_1-\dots-\pi_{p-1})^{r_{ip}}\right]\right\}.$$ 
+The function $Q(\boldsymbol{\theta}|\boldsymbol{\theta}^{(t)})$ is defined as 
+
+$$ Q(\boldsymbol{\theta}|\boldsymbol{\theta}^{(t)}) = \int log L(\boldsymbol{\theta}|\mathbf{x},\mathbf{r}) f(\mathbf{r}|\mathbf{x},\boldsymbol{\theta}^{(t)})d\mathbf{r}$$ where $f(\mathbf{r}|\mathbf{x},\boldsymbol{\theta}^{(t)})$ is $\prod_{i=1}^n f(r_{i}|\mathbf{x}_i,\boldsymbol{\theta}^{(t)})$ and $f(r_{i}|\mathbf{x}_i,\boldsymbol{\theta}^{(t)})$ is a multinomial distribution with one trial and the success probability for the $j$th category is $$p_{ij}=\frac{\pi_j^{(t)}\phi(x_i;\mu_j^{(t)},\sigma_j^{2(t)})} {\sum_j\pi_j^{(t)}\phi(x_i,\mu_j^{(t)},\sigma_j^{2(t)})}$$
+
+- **1a.**(0.5 point) What is the expected value of $r_{ij}$ given $\mathbf{x}_i,\boldsymbol{\theta}^{(t)}$, i.e. $E(r_{ij}|\mathbf{x}_i,\boldsymbol{\theta}^{(t)})$?
+
+- **1b.** (1.5 points) E-step. Derive $Q(\boldsymbol{\theta}|\boldsymbol{\theta}^{(t)})$.
+
+- **1c.** (2 points) M-step. Take derivatives of $Q(\boldsymbol{\theta}|\boldsymbol{\theta}^{(t)})$ with respect to each $\pi_j$, $\mu_j$, and $\sigma_j^2$. Set the derivatives to zero and solve for the parameters. The roots are set as $\pi_j^{(t+1)}$, $\mu_j^{(t+1)}$, and $\sigma_j^{2(t+1)}$ respectively. Show that the roots are
+\[
+\begin{align}
+m_j & = \sum_{i=1}^n p_{ij}\\
+\pi_j &= \frac{m_j}{m}\\
+\mu_j &= \frac{\sum_{i=1}^n p_{ij}x_i}{m_j}\\
+\sigma_j^2 &= \frac{\sum_{i=1}^n p_{ij}(x_i-\mu_j)^2}{m_j}
+\end{align}
+\]
+
+Importance sampling and rejection sampling
+===
+Consider finding $\sigma^2 = E(X^2)$ when $X$ has the density that is proportional to $q(x) = e^{-|X|^3/3}$.
+
+- **2a.** (2.5 points) Write a R program to estimate $\sigma^2$ using importance sampling with standardized weights. (Note that sampling with standardized weights do not require knowing the proportionality constant for the density). Hint: you may use standard Normal distribution as the importance sampling function since it has heavier tails than the target distribution.
+
+- **2b.** (2.5 points) Write a R program to estimate $\sigma^2$ using rejection sampling. Note that for rejection sampling, you need to find a density $g$ and an $\alpha$ such that $g(x)/\alpha \geq q(x)$ for all $x$. If you use standard Normal distribution for $g$ again, letting $\alpha = 1/\sqrt{2\pi}$ would meet the requirement. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,427 @@
+---
+title: 'Lab 3: Plotting Tools and functions'
+author: "Statistical Computing"
+output: pdf_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, autodep=TRUE, cache.comments=TRUE)
+```
+
+Name:  tim farkas
+Collaborated with: so lonely 
+
+The total credit of this lab is 10 points. You can collaborate with your classmates, but you must identify their names above, and you must submit **your own** lab as an knitted pdf file. To answer the questions, display the results and write your comments if asked.
+
+```{r}
+setwd("~/Dropbox/3_Education/Courses/stat_590_compstat/code")
+library(tidyverse)
+```
+
+
+Fastest 100m sprint times
+===
+
+Below, we read in a data set of the fastest times ever recorded for the 100m sprint, in men's track. We also read in a data set of the fastest times ever recorded for the 100m, in women's track. 
+
+```{r}
+# had to change these a bit -- deleted sep and quote arguments
+sprint.m.dat = read.table(file = "../sprint.m.df.txt", header = TRUE)
+sprint.w.dat = read.table(file = "../sprint.w.df.txt", header = TRUE)
+```
+
+Plot basics
+===
+
+- **1a.** (0.2 point) Below is some code that is very similar to that from the lecture, but with one key difference. Explain: why does the `plot()` result with with `type="p"` look normal, but the `plot()` result with `type="l"` look abnormal, having crossing lines? Then modify the code below (hint: modify the definition of `x`), so that the lines on the second plot do not cross. 
+
+```{r}
+n = 50
+set.seed(0)
+x = runif(n, min=-2, max=2)
+y = x^3 + rnorm(n)
+plot(x, y, type="p")
+plot(x, y, type="l")
+```
+
+Using `type = "l"` connects the points in the order of their index, which is not necessarily the order of the points on the x-axis. The following code fixes the line plot, should you really want it. 
+
+```{r}
+plot(x[order(x)], y[order(x)], type="l")
+```
+
+
+- **1b.** (0.2 point) The `cex` argument can used to shrink or expand the size of the points that are drawn. Its default value is 1 (no shrinking or expansion). Values between 0 and 1 will shrink points, and values larger than 1 will expand points. Plot `y` versus `x`, first with `cex` equal to 0.5 and then 2 (so, two separate plots). Give titles "Shrunken points", and "Expanded points", to the plots, respectively.
+
+```{r}
+plot(x, y, cex = .5, main = "Shrunken Points")
+plot(x, y, cex = 2, main = "Expanded Points")
+```
+
+- **1c.** (0.2 point) The `xlim` and `ylim` arugments can be used to change the limits on the x-axis and y-axis, respectively. Each argument takes a vector of length 2, as in `xlim = c(-1, 0)`, to set the x limit to be from -1 to 0. Plot `y` versus `x`, with the x limit set to be from -1 to 1, and the y limit set to be from -5 to 5. Assign x and y labels "Trimmed x" and "Trimmed y", respectively.
+
+```{r}
+plot(x, y, 
+     xlim = c(-1, 1), ylim = c(-5, 5), 
+     xlab = "Trimmed x", ylab = "Trimmed y")
+```
+
+- **1d.** (0.2 point) Again plot `y` versus `x`, only showing points whose x values are between -1 and 1. But this time, define `x.trimmed` to be the subset of `x` between -1 and 1, and define `y.trimmed` to be the corresponding subset of `y`. Then plot `y.trimmed` versus `x.trimmed` without setting `xlim` and `ylim`: now you should see that the y limit is (automatically) set as "tight" as possible. Hint: use logical indexing to define `x.trimmed`, `y.trimmed`.
+
+```{r}
+x.trimmed <- x[x >= -1 & x <= 1]
+y.trimmed <- y[x >= -1 & x <= 1]
+plot(x.trimmed, y.trimmed)
+```
+
+
+- **1e.** (0.2 point) The `pch` argument, recall, controls the point type in the display. In the lecture examples, we set it to a single number. But it can also be a vector of numbers, with one entry per point in the plot. So, e.g.,
+
+    ```{r}
+    plot(1:10, 1:10, pch=1:10)
+    ```
+
+displays the first 10 point types. If `pch` is a vector whose length is shorter than the total number of points to be plotted, then its entries are recycled, as appropriate. Plot `y` versus `x`, with the point type alternating in between an empty circle and a filled circle. 
+
+```{r}
+plot(x[order(x)], y[order(x)], pch = c(1,16))
+```
+
+
+- **1f.**(0.2 point) The `col` argument, recall, controls the color the points in the display. It operates similar to `pch`, in the sense that it can be a vector, and if the length of this vector is shorter than the total number of points, then it is recycled appropriately. Plot `y` versus `x`, and repeat the following pattern for the displayed points: a black empty circle, a blue filled circle, a black empty circle, a red filled circle.
+
+```{r}
+plot(x[order(x)], y[order(x)], pch=c(1, 16), 
+     col = c("black", "blue", "black", "red" ))
+```
+
+Adding to plots
+===
+
+- **2a.** (0.2 point) Produce a scatter plot of `y` versus `x`, and set the title and axes labels as you see fit. Then overlay on top a scatter plot of `y2` versus `x2`, using the `points()` function, where `x2` and `y2` are as defined below. In the call to `points()`, set the `pch` and `col` arguments appropriately so that the overlaid points are drawn as filled blue circles. 
+
+```{r}
+x2 = sort(runif(n, min=-2, max=2))
+y2 = x^2 + rnorm(n)
+
+plot(y, x, main = "a title", xlab = "x axis", ylab = "y axis")
+points(x2, y2, pch = 16, col = "blue")
+```
+
+- **2b.** (0.3 point) Starting with your solution code from the last question, overlay a line plot of `y2` versus `x2` on top of the plot (which contains empty black circles of `y` versus `x`, and filled blue circles of `y2` versus `x2`), using the `lines()` function. In the call to `lines()`, set the `col` and `lwd` arguments so that the line is drawn in red, with twice the normal thickness. Look carefully at your resulting plot. Does the red line pass overtop of or underneath the blue filled circles? What do you conclude about the way R *layers* these additions to your plot?
+
+```{r}
+plot(y, x, main = "a title", xlab = "x axis", ylab = "y axis")
+points(x2, y2, pch = 16, col = "blue")
+lines(x2, y2, col = "red")
+```
+
+Successive layers go on top.
+
+- **2c.** (0.3 point) Starting with your solution code from the last question, add a legend to the bottom right corner of the the plot using `legend()`. The legend should display the text: "Cubic" and "Quadratic", with corresponding symbols: an empty black circle and a filled blue circle, respectively. Hint: it will help to look at the documentation for `legend()`.
+
+```{r}
+plot(y, x, 
+     xlim = c(-8, 8),
+     main = "a title", xlab = "x axis", ylab = "y axis")
+points(x2, y2, pch = 16, col = "blue")
+lines(x2, y2, col = "red")
+legend("bottomright",  legend=c("Cubic", "Quadratic"), bty="n", 
+       pch = c(1, 16), col = c("black", "blue"), cex = .75)
+```
+
+
+- **2d.** (0.3 point) Produce a plot of `y` versus `x`, but with a gray rectangle displayed underneath the points, which runs has a lower left corner at `c(-2, qnorm(0.1))`, and an upper right corner at `c(2, qnorm(0.9))`. Hint: use `rect()` and consult its documentation. Also, remember how layers work; call `plot()`, with `type="n"` or `col="white"` in order to refrain from drawing any points in the first place, then call `rect()`, then call `points()`.
+
+```{r}
+plot(x, y, type = "n")
+rect(xleft = c(-2, -2), xright = c(2, 2),
+     ybottom = c(qnorm(0.1), qnorm(0.1)), 
+     ytop = c(qnorm(0.9), qnorm(0.9)), col = "grey")
+points(x, y)
+
+```
+
+Text manipulations, and layered plots
+===
+
+- **3a.** (0.3 point) Back to the sprinters data set: define `sprint.m.times` to be the `Time` column of `sprint.m.dat`. Define `sprint.m.dates` to be the `Date` column of `sprint.m.dat`, converted into a character vector. Define a character vector `sprint.m.years` to contain the last 4 characters of an entry of `sprint.m.dates`. Hint: use `substr()`. Finally, convert `sprint.m.years` into a numeric vector. Display its first 10 entries.
+
+```{r}
+sprint.m.times <- sprint.m.dat$Time
+sprint.m.dates <- as.character(sprint.m.dat$Date)
+sprint.m.years <- as.numeric(substr(sprint.m.dates, 7, 10))
+print(sprint.m.years[1:10])
+```
+
+- **3b.**(0.3 point) Plot `sprint.m.times` versus `sprint.m.years`. For the point type, use small, filled black circles. Label the x-axis "Year" and the y-axis "Time (seconds)". Title the plot "Fastest men's 100m sprint times". Using `abline()`, draw a dashed blue horizontal line at 10 seconds. Using `text()`, draw below this line, in text on the plot, the string "N men", replacing "N" here by the number of men who have run under 10 seconds. Your code should programmatically determine the correct number here, and use `paste()` to form the string. Comment on what you see visually, as per the sprint times across the years. What does the trend look like for the fastest time in any given year?
+
+```{r}
+plot(sprint.m.times, x = sprint.m.years, cex=.5, pch = 16,
+     xlab = "Year", ylab = "Time (seconds)", 
+     main = "Fastest men's 100m sprint times")
+abline(h = 10, lty=2, col = "blue", lwd =2 )
+text(x = 1970, y = 9.9, 
+     labels = paste(length(sprint.m.times[sprint.m.times < 10]), "men"))
+```
+
+There are lots of men with 100m sprint times under 10 seconds, but there were very few before 1990. Fastest sprint times have been decreasing since 1975 at the latest. 
+
+- **3c.** (0.3 point) Reproduce the previous plot, but this time, draw a light blue rectangle underneath all of the points below the 10 second mark. The rectangle should span the entire region of the plot below the horizontal line at $y=10$. And not only the points of sprint times, but the blue dashed line, and the text "N men" (with "N" replaced by the appropriate number) should appear *on top* of the rectangle. Hint: use `rect()` and layering as appropriate.
+
+```{r}
+plot(sprint.m.times, x = sprint.m.years, 
+     xlab = "Year", ylab = "Time (seconds)", 
+     main = "Fastest men's 100m sprint times", type = "n")
+rect(xleft=rep(min(sprint.m.years) - 10, 2), 
+     xright = rep(max(sprint.m.years) + 10, 2), 
+     ytop = c(10, 10), ybottom = rep(min(sprint.m.times) - 10, 2), 
+     col = "lightblue")
+points(sprint.m.times, x = sprint.m.years, cex=.5, pch = 16,)
+abline(h = 10, lty=2, col = "blue", lwd =2 )
+text(x = 1970, y = 9.9, 
+     labels = paste(length(sprint.m.times[sprint.m.times < 10]), "men"))
+```
+
+More text manipulations, and histograms
+===
+
+- **4a.** (0.3 point) Extract the birth years of the sprinters from the data frame `sprint.m.dat`. To do so, define `sprint.m.bdates` to be the `Birthdate` column of `sprint.m.dat`, converted into a character vector. Then define a character vector `sprint.m.byears` to contain the last 2 characters of each entry of `sprint.m.bdates`. Convert `sprint.m.byears` into a numeric vector, add 1900 to each entry, and redefine `sprint.m.byears` to be the result. Finally, compute a vector `sprint.m.ages` containing the age (in years) of each sprinter when their sprint time was recorded. Hint: use `sprint.m.byears` and `sprint.m.years`. 
+
+```{r}
+sprint.m.bdates <- as.character(sprint.m.dat$Birthdate)
+sprint.m.byears <- as.numeric(substring(sprint.m.bdates, 
+                             nchar(sprint.m.bdates)-1,
+                             nchar(sprint.m.bdates))) + 1900
+sprint.m.ages <- sprint.m.years - sprint.m.byears
+```
+
+
+- **4b.** (0.3 point) Plot a histogram of `sprint.m.ages`, with break locations occuring at every age in between 17 and 40. Color the histogram to your liking; label the x-axis, and title the histogram appropriately. What is the mode, i.e., the most common age? Also, describe what you see around the mode: do we see more sprinters who are younger, or older? 
+
+```{r}
+hst <- hist(sprint.m.ages, breaks = 17:40, xlab = "Sprinter Age", 
+     main = "Age Distribution of Male Olympic Sprinters")
+
+hst$breaks[hst$counts == max(hst$counts)]
+```
+
+The mode is 22 years old. There is a long right tail, with more athletes older than 22 than are younger. 
+
+Maungawhau volcano and heatmaps
+===
+
+- **5a.** (0.4 point) The `volcano` object in R is a matrix of dimension 87 x 61. It is a digitized version of a topographic map of the Maungawhau volcano in Auckland, New Zealand. Plot a heatmap of the volcano using `image()`, with 25 colors from the terrain color palette. 
+
+```{r}
+image(volcano)
+```
+
+
+- **5b.** (0.4 point) Each row of `volcano` corresponds to a grid line running east to west. Each column of `volcano` corresponds to a grid line running south to north. Define a matrix `volcano.rev` by reversing the order of the rows, as well as the order of the columns, of `volcano`. Therefore, each row `volcano.rev` should now correspond to a grid line running west to east, and each column of `volcano.rev` a grid line running north to south. 
+
+```{r}
+volcano.rev <- volcano[87:1, 61:1]
+image(volcano.rev)
+```
+
+
+- **5c.** (0.4 point) If we printed out the matrix `volcano.rev` to the console, then the elements would follow proper geographic order: left to right means west to east, and top to bottom means north to south. Now, produce a heatmap of the volcano that follows the same geographic order. Hint: recall that the `image()` function rotates a matrix 90 degrees counterclockwise before displaying it; and recall the function `clockwise90()` from the lecture, which you can copy and paste into your code here. Label the x-axis "West --> East", and the y-axis "South --> North". Title the plot "Heatmap of Maungawhau volcano".
+
+```{r}
+image(t(volcano.rev[nrow(volcano.rev):1,]))
+```
+
+Huber loss function
+===
+
+The Huber loss function (or just Huber function, for short) is defined as:
+$$
+\psi(x) = \begin{cases}
+x^2 & \text{if $|x| \leq 1$} \\
+2|x| - 1 & \text{if $|x| > 1$} 
+\end{cases}
+$$
+This function is quadratic on the interval [-1,1], and linear outside of this interval. It transitions from quadratic to linear "smoothly". It is often used in place of the usual squared error loss for robust estimation. The sample average, $\bar{X}$---which given a sample $X_1,\ldots,X_n$ minimizes the squared error loss $\sum_{i=1}^n (X_i-m)^2$ over all choices of $m$---can be inaccurate as an estimate of $\mathbb{E}(X)$ if the distribution of $X$ is heavy-tailed. In such cases, minimizing Huber loss can give a better estimate. 
+
+Some simple function tasks
+===
+
+- **6a.** (0.4 point) Write a function `huber()` that takes as an input a number $x$, and returns the Huber value $\psi(x)$, as defined above. Hint: the body of a function is just a block of R code, e.g., in this code you can use `if()` and `else()` statements. Check that `huber(1)` returns 1, and `huber(4)` returns 7.
+
+```{r}
+huber <- function(x) ifelse(abs(x) <= 1, x^2, 2 * abs(x) - 1)
+huber(c(0, 1, .5)) # 0, 1, .25
+huber(c(2, 3, 4)) # 3, 5, 7
+```
+
+- **6b.** (0.4 point) The Huber function can be modified so that the transition from quadratic to linear happens at an arbitrary cutoff value $a$, as in:
+$$
+\psi_a(x) = \begin{cases}
+x^2 & \text{if $|x| \leq a$} \\
+2a|x| - a^2 & \text{if $|x| > a$} 
+\end{cases}
+$$
+
+
+Starting with your solution code to the last question, update your `huber()` function so that it takes two arguments: $x$, a number at which to evaluate the loss, and $a$ a number representing the cutoff value. It should now return $\psi_a(x)$, as defined above. Check that `huber(3, 2)` returns 8, and `huber(3, 4)` returns 9.
+
+```{r}
+huber <- function(x, a) ifelse(abs(x) <= a, x^2, 2 * a * abs(x) - a^2)
+huber(3, 2) # 8
+huber(3, 4) # 9
+```
+
+- **6c.** (0.4 point) Update your `huber()` function so that the default value of the cutoff $a$ is 1. Check that `huber(3)` returns 5.
+
+```{r}
+huber <- function(x, a = 1) ifelse(abs(x) <= a, x^2, 2 * a * abs(x) - a^2)
+huber(3) # 5
+```
+
+- **6d.** (0.4 point) Check that `huber(a=1, x=3)` returns 5. Check that `huber(1, 3)` returns 1. Explain why these are different.
+
+```{r}
+huber(a = 1, x = 3) # 5
+huber(1, 3) # 1
+```
+
+R uses positional matching when argument names are omitted. Because the function was defined with `x` and `a` as the first and second arguments, respectively, `huber(1, 3)` is synonymous with `huber(x = 1, a = 3)`.
+
+- **6e.** (0.4 point) Vectorize your `huber()` function, so that the first input can actually be a vector of numbers, and what is returned is a vector whose elements give the Huber evaluated at each of these numbers. Hint: you might try using `ifelse()`, if you haven't already, to vectorize nicely. Check that `huber(x=1:6, a=3)` returns the vector of numbers (1, 4, 9, 15, 21, 27).
+
+```{r}
+huber(1:6, 3) # 1, 4, 9, 15, 21, 27
+```
+
+- **6f.** (0.4 point) You computed the Huber function values $\psi_a(x)$ over a bunch of different $x$ values, stored in `huber.vals` and `x.vals`, respectively. However, the cutoff $a$ was, let's say, lost. Using `huber.vals`, `x.vals`, and the definition of the Huber function, you should be able to figure out the cutoff value $a$, at least roughly. Estimate $a$ and explain how you got there. Hint: one way to estimate $a$ is to do so visually, using plotting tools; there are other ways too.
+
+```{r, warning=FALSE}
+x.vals = seq(0, 5, length=21)
+huber.vals = c(0.0000, 0.0625, 0.2500, 0.5625, 1.0000, 1.5625,
+               2.2500, 3.0625, 4.0000, 5.0625, 6.2500, 7.5625,
+               9.0000, 10.5000, 12.0000, 13.5000, 15.0000, 16.5000,
+               18.0000, 19.5000, 21.0000)
+
+# with optim using squared error loss
+huber.sse <- function(x, h, par) {
+  sum((h - huber(x, par))^2)
+}
+
+optim(par = 1, fn = huber.sse, x = x.vals, h = huber.vals)$par # 3
+
+# check with a plot
+plot(x.vals, huber.vals) # looks about right
+```
+
+I minimized squared error loss with a numerical optimizer, `optim()`, which comes standard in R's `stats` package, to determine the $a$ value is close to 3. I defined a function for squared error loss, using the `huber()` function I wrote above, and passed it to `optim()` along with the data, using a starting value of 1, and the default Nelder-Mead optimizer. Another way would be to fit lines to three points at a time, looking for the first case with a perfect fit, but I think a numerical optimizer will achieve greater accuracy. A plot of the data makes 3 seem about right, but it's admittedly difficult to assess visually!
+
+Plotting practice, side effects 
+===
+
+- **7a.** (0.4 point) Produce a plot of the basic `huber()` function ($a=1$) using the codes you wrote above. 
+
+```{r}
+plot(x= seq(-10, 10, len=100), 
+     y = huber(seq(-10, 10, len=100)), 
+     type="l", 
+     xlab = "input", ylab = "Huber transform")
+```
+
+
+- **7b.** (0.4 point) Modify the `huber()` function so that, as a side effect, it prints the string "Invented by the great Swiss statistician Peter Huber!" to the console. Hint: use `cat()`. Call your function on an input of your choosing, to demonstrate this side effect.
+
+```{r}
+huber <- function(x, a = 1) {
+  cat( "Invented by the great Swiss statistician Peter Huber!\n")
+  cat(paste0("a = ", a, ", x = ", x, 
+         ", Huber transform = ", 
+         ifelse(abs(x) <= a, x^2, 2 * a * abs(x) - a^2)))
+}
+
+huber(10)
+```
+
+Exploring function environments
+===
+
+- **8a.** (0.4 point) A modified version of the Huber function called `huber.mod()` is given below. You can see that we've defined the variable `x.squared` in the body of the function to be the square of the input argument `x`. In a separate line of code (outside of the function definition), define the variable `x.squared` to be equal to 999. Then call `huber.mod(x=3)`, and display the value of `x.squared`. What is its value? Is this affected by the function call `huber.mod(x=3)`? It shouldn't be! Reiterate this point with several more lines of code, in which you repeatedly define `x.squared` to be something different (even something nonnumeric, like a string), and then call `huber.mod(x=3)`, and demonstrate afterwards that the value of `x.squared` hasn't changed.
+
+```{r}
+huber.mod = function(x, a=1) {
+  x.squared <- x^2
+  ifelse(abs(x) <= a, x.squared, 2*a*abs(x)-a^2)
+}
+
+x.squared <- 999
+huber.mod(3)
+x.squared
+
+x.squared = TRUE
+huber.mod(5)
+x.squared
+```
+
+No, the `x.squared` in the `huber.mod()` function, and the `x.squared` variable defined outside the function are not affected by one another because of how R handles variable scoping. When defined inside a function, the variable will be used only there, and look for a global variable only if a local one is not defined. Variables defined inside a function do not affect global behavior unless intentionally defined as such with `<<-`. See below.
+
+```{r}
+huber.mod2 = function(x, a=1) {
+  x.squared <<- x^2
+  ifelse(abs(x) <= a, x.squared, 2*a*abs(x)-a^2)
+}
+x.squared <- TRUE
+huber.mod2(3)
+x.squared 
+```
+
+- **8b.** (0.4 point) Similar to the last question, define the variable `a` to be equal to -59.6, then call `huber.mod(x=3, a=2)`, and show that the value of `a` after this function call is unchanged. And repeat a few times with different assignments for the variable `a`, to reiterate this point.
+
+```{r}
+a = -59.6
+huber.mod(x = 3, a = 2)
+a
+
+# beating a dead horse here
+
+a = TRUE
+huber.mod(x = 3, a = 2)
+a
+```
+
+- **8c.** (0.4 point) The previous two questions showed you that a function's body has its own environment in which locally defined variables, like those defined in the body itself, or those defined through inputs to the function, take priority over those defined outside of the function. However, when a variable referred to the body of a function is *not defined in the local environment*, the default is to look for it in the global environment (outside of the function).
+
+    Below is a "sloppy" implementation of the Huber function called `huber.sloppy()`, in which the cutoff `a` is not passed as an argument to the function. In a separate line of code (outside of the function definition), define `a` to be equal to 1.5 and then call `huber.sloppy(x=3)`. What is the output? Explain. Repeat this a few times, by defining `a` and then calling `huber.sloppy(x=3)`, to show that the value of `a` does indeed affect the function's ouptut as expected. Try setting `a` equal to a string and calling `huber.sloppy(x=3)`; can you explain what is happening?
+
+```{r}
+huber.sloppy = function(x) {
+  ifelse(abs(x) <= a, x^2, 2*a*abs(x)-a^2)
+}
+
+a = 1.5
+huber.sloppy(x = 3)
+a = "not a valid parameter"
+huber.sloppy(x = 3)
+```
+
+This is why proper unit tests are important. When `huber.sloppy()` runs `abs(x) <= a`, the expression evaluates to `TRUE`, even though this is a non-sensical comparison, and so proceeds to return `x^2`. The spurious results could easily be overlooked since no error is thrown!
+
+- **8d.** (0.4 point) At last, a difference between `=` and `<-`, explained! The equal sign `=` and assignment operator `<-` are often used interchangeably in R, and some people will often say that a choice between the two is mostly a matter of stylistic taste. This is not the full story. Indeed, `=` and `<-` behave very differently when used to set input arguments in a function call. As we showed above, setting, say, `a=5` as the input to `huber()` has no effect on the global assignment for `a`. However, replacing `a=5` with `a<-5` in the call to `huber()` is entirely different in terms of its effect on `a`. Demonstrate this, and explain what you are seeing in terms of global assignment.
+
+```{r}
+a = TRUE
+huber(x = 3, a <- 5)
+a
+```
+
+By using `<-` in the argument assignment, it sets `a` to 5 in the global environment. 
+
+- **8e.** (0.4 point) The story now gets even more subtle. It turns out that the assignment operator `<-` allows us to define new global variables even when we are specifying inputs to a function. Pick a variable name that has not been defined yet in your workspace, say `b` (or something else, if this has already been used in your R Markdown document). Call `huber(x=3, b<-20)`, then display the value of `b`---this variable should now exist in the global enviroment, and it should be equal to 20! Also, can you explain the output of `huber(x=3, b<-20)`?
+
+```{r, error = TRUE}
+huber(x = 3, b <- 20)
+huber(a <- 3, 1)
+huber(1, 3)
+huber(x = 3, b = 20)
+```
+
+Here we demonstrate that although `b <- 20` sets a global variable for `b`, it actually is not assigning 20 as the value to an arugment named `b`. Instead, it assignes a value to the global variable `b`, then assigns that value to the argument `a` thought positional matching. Notice the function call `huber(a <- 3, 1)` is the same as `huber(x = 3, a = 1)`, not `huber(x = 1, a = 3)`. 

@@ -1,0 +1,150 @@
+---
+title: 'Lab 4: Simulation'
+author: "Statistical Computing"
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(cache=TRUE, autodep=TRUE, cache.comments=TRUE, 
+                      message = FALSE)
+```
+
+Name:  
+Collaborated with:  
+
+The total credit of this lab is 10 points. You can collaborate with your classmates, but you must identify their names above, and you must submit **your own** lab as an knitted pdf file. To answer the questions, display the results and write your comments if asked.
+
+```{r}
+set.seed(1986)
+library(dplyr)
+library(purrr)
+```
+
+
+Basic random number generation
+===
+
+- **1a.** (0.3 point) Generate the following objects, save them to variables (with names of your choosing), and call `head()` on those variables.
+
+    + A vector with 1000 standard normal random variables.
+    + A vector with 20 draws from $\mathrm{Beta}(0.1, 0.1)$.
+    + A vector of 2000 characters sampled uniformly from "A", "G", "C", and "T".
+    + A data frame with a column `x` that contains 100 draws from $\mathrm{Unif}(0, 1)$, and a column `y` that contains 100 draws of the form $y_i \sim \mathrm{Unif}(0, x_i)$. Do this without using explicit iteration.
+    
+$y_i \sim \mathrm{Unif}(0, x_i)$
+    
+```{r}
+std_norm1000 <- rnorm(1000)
+beta.1.1 <- rbeta(20, .1, .1)
+dna_sample <- sample(c("A", "C", "T", "G"), 2000, replace = TRUE)
+df_rand <- tibble(x = runif(100)) %>%
+  rowwise() %>%
+  mutate(y = runif(1, 0, x))
+
+head(std_norm1000)
+head(beta.1.1)
+head(dna_sample)
+head(df_rand)
+```
+
+- **1b.**(0.3 point)  We've written a function `plot.cum.means()` below which plots cumulative sample mean as the sample size increases. The first argument `rfun` stands for a function which takes one argument `n` and generates this many random numbers when called as `rfun(n)`. The second argument `n.max` is an integer which tells the number samples to draw. As a side effect, the function plots the cumulative mean against the number of samples.
+
+```{r}
+    # plot.cum.means: plot cumulative sample mean as a function of sample size
+    # Inputs:
+    # - rfun: function which generates random draws
+    # - n.max: number of samples to draw
+    # Ouptut: none
+    plot.cum.means = function(rfun, n.max, ...) {
+      samples = rfun(n.max, ...)
+      plot(1:n.max, cumsum(samples) / 1:n.max, type = "l")
+    }
+```
+    
+    Use this function to make plots for the following distributions, with `n.max=1000`. Then answer: do the sample means start concentrating around the appropriate value as the sample size increases?
+
+    + $N(-3, 10)$
+    + $\mathrm{Exp}(\mathrm{mean}=5)$ 
+    + $\mathrm{Beta}(1, 1)$
+
+    Hint: for each, you should construct a new single-argument random number generator to pass as the `rfun` argument to `plot.cum.means()`, as in `function(n) rnorm(n, mean=-3, sd=sqrt(10))` for the first case. 
+ 
+ 
+```{r}
+plot.cum.means(rfun = rnorm, n.max = 1000, mean = -3, sd = 10)
+plot.cum.means(rfun = rexp, n.max = 1000, rate = 1/5)
+plot.cum.means(rfun = rbeta, n.max = 1000, shape1 = 1, shape2 = 1)
+```
+
+Please see my addition of the `...` argument to the function `plot.cum.means`, obviating the need for helper functions. Indeed, in each case, a the number of samples increases, average of the sample tends toward the expected value of the theoretical distribution.  
+    
+- **1c.** (0.3 point) Find a distribution whose sample mean should not converge (in theory) as the sample size grows. Call `plot.cum.means()` with the appropriate random number generator and `n.max=1000`.
+
+ 
+```{r}
+plot.cum.means(rfun = rnorm, n.max = 1000, mean = -3, sd = 10)
+plot.cum.means(rfun = rexp, n.max = 1000, rate = 1/5)
+plot.cum.means(rfun = rbeta, n.max = 1000, shape1 = 1, shape2 = 1)
+```
+
+Please see my addition of the `...` argument to the function `plot.cum.means`, obviating the need for helper functions. Indeed, in each case, a the number of samples increases, average of the sample tends toward the expected value of the theoretical distribution.  
+    
+- **1c.** (0.3 point) Find a distribution whose sample mean should not converge (in theory) as the sample size grows. Call `plot.cum.means()` with the appropriate random number generator and `n.max=1000`.
+
+```{r}
+my_rnorm <- function(n) rnorm(n, mean = 1:n, sd = 100)
+plot.cum.means(rfun = my_rnorm, n.max = 1000)
+```
+
+I simply made the mean dependent on the sample size. Is that fair?
+
+- **1d.** (0.3 point) For the same distributions as Q1b we will do the following.
+
+    + Generate 10, 100, and 1000 random samples from the distribution.
+    + On a single plot, display the ECDFs (empirical cumulative distribution functions) from each set of samples, and the true CDF, with each curve being displayed in a different color.
+
+    In order to do this, we'll write a function `plot.ecdf(rfun, pfun, sizes)` which takes as its arguments the single-argument random number generating function `rfun`, the corresponding single-argument conditional density function `pfun`, and a vector of sample sizes `sizes` for which to plot the ecdf.
+
+    We've already started to define `plot.ecdf()` below, but we've left it incomplete. Fill in the definition by editing the lines with "##" and "??", and then run it on the same distributions as in Q1b. Examine the plots and discuss how the ECDFs converge as the sample size increases. Note: make sure to remove `eval=FALSE`, after you've edited the function, to see the results.
+
+```{r, eval=TRUE}
+# plot.ecdf: plots ECDFs along with the true CDF, for varying sample sizes
+# Inputs:
+# - rfun: function which generates n random draws, when called as rfun(n)
+# - pfun: function which calculates the true CDF at x, when called as pfun(x)
+# - sizes: a vector of sample sizes
+# Output: none
+  
+plot.ecdf = function(rfun, pfun, sizes, ...) {
+  # Draw the random numbers
+   samples = map(sizes, ~rfun(n = .x, ...))
+
+  # Calculate the grid for the CDF
+  grid.min = min(sapply(samples, min))
+  grid.max = max(sapply(samples, max))
+  grid = seq(grid.min, grid.max, length=1000)
+
+  # Calculate the ECDFs
+  ecdfs = map(samples, ecdf)
+  evals = map(ecdfs, function(f) f(grid))
+
+  # Plot the true CDF
+  plot(x = grid, y = pfun(grid, ...), 
+       type="l", col="black", xlab="x", ylab = "P(X <= x)")
+
+  # Plot the ECDFs on top
+  n.sizes = length(sizes)
+  cols = rainbow(n.sizes)
+  walk2(evals, cols, ~ lines(grid, .x, col = .y, lty = 3))
+  #for (i in 1:n.sizes) {
+  #  lines(grid, evals[[i]], col=cols[i])
+  #}
+  legend("bottomright", legend=sizes, col=cols, lwd=1)
+}
+
+plot.ecdf(rfun = rnorm, pfun = pnorm, sizes = c(10, 100, 1000), 
+          mean = -3, sd = 10)
+plot.ecdf(rfun = rexp, pfun = pexp, sizes = c(10, 100, 1000), 
+          rate = 1/5)
+plot.ecdf(rfun = rbeta, pfun = pbeta, sizes = c(10, 100, 1000), 
+          shape1 = 1, shape2 = 1)
+```
